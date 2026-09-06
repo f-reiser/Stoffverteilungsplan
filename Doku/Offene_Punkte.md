@@ -1,60 +1,32 @@
 # Offene Punkte
 
-Stand 05.09.2026, Ende des Tages.
+Stand 06.09.2026.
 
-## Vom unabhängigen Agenten gemeldet, von mir im Code bestätigt, NOCH NICHT repariert
+> **Die offenen Befunde stehen jetzt im Issue-Tracker**, nicht mehr hier.
+> Diese Datei behält nur, was sich schlecht als Issue führen lässt: bewusste
+> Entscheidungen, den Migrationsverlauf und den Infrastrukturstand.
+> Zwei Listen derselben Sache laufen sonst auseinander.
 
-Der Nutzer wollte das ausdrücklich als Issues behandeln, nicht als stille Reparaturen.
-Alle fünf habe ich selbst im Code nachgeprüft — Sicherheitsgrad **sicher**.
+## Die Befunde der Gegenlese — jetzt als Issues
 
-**1. Die Leerzeilen-Prüfung hat immer noch denselben blinden Fleck.**
-`modSelbsttest.T1b_Zustand`, Zeile ~363: `If Not NurLeer(ws, r) Then Exit Do` ist
-unterhalb von `PlanLastRow` immer wahr, weil `PlanLastRow` dieselben Spalten scannt wie
-`NurLeer`. Entschieden wird allein über die Zeilenhöhe — eine Formatheuristik, während
-`LeereEndzeilenEntfernen` `UsedRange` benutzt. Test und Code messen verschiedene Dinge.
-Die unabhängige Prüfung wäre `UnterkanteBlatt(ws) <= PlanLastRow(ws)`.
+Ergebnis des ersten Einsatzes von Ebene 9. Alle fünf bestätigten Befunde wurden am
+06.09.2026 unabhängig ein zweites Mal im Code nachgeprüft, bevor sie angelegt wurden;
+die Zeilenangaben stimmen mit dem aktuellen Stand überein.
 
-**2. Ein Check, der ein Literal prüft.**
-`modSelbsttest`, Zeile ~255: `Chk "Fixierung ist ...", True`. Kann nicht fehlschlagen.
+| # | Befund | Sicherheitsgrad |
+|---|---|---|
+| [#1](https://github.com/f-reiser/Stoffverteilungsplan/issues/1) | Leerzeilen-Prüfung hat denselben blinden Fleck wie der Fehler, den sie finden soll (Zeile 363) | sicher |
+| [#2](https://github.com/f-reiser/Stoffverteilungsplan/issues/2) | `Chk ..., True` — Check prüft ein Literal (Zeile 255) | sicher |
+| [#3](https://github.com/f-reiser/Stoffverteilungsplan/issues/3) | T3b prüft `wpBtnDown` statt `wpBtnUp` (Zeilen 547–548) | sicher |
+| [#4](https://github.com/f-reiser/Stoffverteilungsplan/issues/4) | „Fehler 0" statt der echten Nummer (Zeile 1347) | sicher |
+| [#5](https://github.com/f-reiser/Stoffverteilungsplan/issues/5) | Reparatur-Rat heilt Mutation 1 und 8 nicht | sicher |
+| [#6](https://github.com/f-reiser/Stoffverteilungsplan/issues/6) | Sechs Checks ohne Mutation, Lücken in Abschnitt 10 und bei der PDF-Ausgabe | noch nicht nachgeprüft |
+| [#7](https://github.com/f-reiser/Stoffverteilungsplan/issues/7) | `MappeIstLeer` prüft nur F/G/H/I/M — **Auslegungsfrage, der Nutzer entscheidet** | Entscheidung offen |
+| [#8](https://github.com/f-reiser/Stoffverteilungsplan/issues/8) | Vier veraltete Zahlen in `LIESMICH.txt` | sicher |
 
-**3. T3b prüft den falschen Knopf.**
-Der eigene Kommentar sagt „ReadBlock liest den Bereich von `wpBtnUp`" — geprüft wird
-`FormBereich(ws, "wpBtnDown")`, den niemand liest. Nähme man die `AlternativeText`-Zeile
-aus `HideOne` heraus, bliebe der Selbsttest grün.
-
-**4. „Fehler 0" statt der echten Nummer.**
-Im `Fail:`-Zweig von `Selbsttest_Pruefen` steht `Err.Number` NACH `BerichtSchreiben`,
-das `Err.Clear` aufruft. Im anderen Fail-Zweig ist die Falle kommentiert und vermieden,
-hier nicht.
-
-**5. Der Reparatur-Rat nach einem Abbruch ist falsch.**
-Die Meldung sagt „Einrichtung / Reparatur drücken". Das heilt Mutation 1 und 8 nicht:
-`Setup_Stoffverteilungsplan` ruft `LeereEndzeilenEntfernen` gar nicht auf und schreibt
-Spalte E nicht neu.
-
-## Weiteres aus der Gegenlese, noch nicht nachgeprüft
-
-- Sechs Checks in T0/T1b haben keine zugehörige Mutation — für die ist unbewiesen, dass
-  sie anschlagen: „Application.Run erreicht ein privates Modul", „Gegenprobe modStart",
-  „Zeilen-Schaltflächen haben ein Makro", „Summenzeile gefunden", „Summenzeile steht
-  direkt unter dem letzten Lernbereich", „Blatt Anleitung vorhanden".
-- Mutation 2 leert nur Spalte F der ERSTEN Lernbereichszeile; G/H/I und die übrigen
-  Zeilen sind unbewiesen. Mutation 5 legt nur „Update" an, nie „VBA-Update".
-- Abschnitt 10 prüft die Übernahme der **Einstellungen** gar nicht: `MappeLeeren` räumt
-  nur Wochenplan und Lernbereiche leer, Kalender/Ferientabelle/Kopfangaben bleiben stehen.
-  Der Check „Schulwochen-Kalender uebernommen" vergleicht deshalb zwei Seiten derselben
-  unveränderten Tabelle und ist immer grün.
-- Kopf-/Fußzeilen im PDF haben keinen einzigen Check, obwohl der `&Z`-Vorfall die
-  ausführlichste Warnung in der LIESMICH ist. Ebenso ungeprüft: `FitToPagesWide`,
-  `PaperSize`, die Seiteneinrichtung des Blattes Lernbereiche, das Aus- und
-  Wiedereinblenden der übrigen Blätter beim Export.
-- `MappeIstLeer` prüft nur F, G, H, I, M — eine Mappe, in der jemand nur Spalte K oder J
-  gefüllt hat, gilt als leer und wird ohne Rückfrage überschrieben. **Auslegungsfrage,
-  der Nutzer muss entscheiden.**
-- Vier Zahlen in `LIESMICH.txt` sind veraltet: vier Alt+F8-Einträge (es sind fünf),
-  „rund 80 Prüfungen in acht Abschnitten" (129 in dreizehn), „vier direkte MsgBox in
-  modSelbsttest" (sieben), die Schaltflächenliste des Blattes Steuerung nennt sechs
-  statt sieben Knöpfe.
+Neue Befunde entstehen über `.github/ISSUE_TEMPLATE/gegenlese-befund.yml`. Nicht
+bestätigte Befunde werden **nicht** stillschweigend verworfen, sondern mit einer Zeile
+Begründung geschlossen — sonst kommt derselbe Befund bei der nächsten Gegenlese wieder.
 
 ## Bewusst nicht gemacht
 
@@ -81,7 +53,8 @@ in `Doku/Testebenen.md`, Abschnitt „Was die Migration nach Claude Code aufgede
 ## Stand 06.09.2026 — Umzug nach Claude Code
 
 Erster vollständiger Prüflauf auf dem **Windows-Rechner des Nutzers**: zunächst 7 von 8,
-nach der Reparatur **alle 9 Schritte grün** (der neunte ist die Ausgabeschicht).
+nach der Reparatur grün. Mit der Ausgabeschicht und der neuen Ebene A sind es jetzt
+**11 Schritte, alle grün** — lokal wie in der CI.
 
 Dabei repariert, beides in `pruefe_module.py`:
 1. fester Pfad `/tmp` → `tempfile` (lief unter Windows überhaupt nicht),
@@ -119,30 +92,31 @@ GitHub nicht erreichbar (Gateway-Allowlist pro Sitzung; GitLab, Notion, Jira kom
 geblockt). Deshalb der Wechsel zu Claude Code. Versionierung, Changelog und Issue-Tracker
 sollen über GitHub laufen.
 
-**Die CI ist fertig und liegt bei.** `.github/workflows/pruefung.yml` ruft
-`Makros/pruefe_alles.py` — dasselbe Skript, das lokal läuft. Abgedeckt sind die Ebenen
-1, 2, 3, 6, 7 und 8 samt ihrer Mutationstests, zusammen 40 Mutationen. Nicht abgedeckt
-sind Ebene 4/5 (brauchen echtes Excel) und Ebene 9 (braucht ein Sprachmodell).
+**Die CI läuft.** `.github/workflows/pruefung.yml` ruft `Makros/pruefe_alles.py` —
+dasselbe Skript, das lokal läuft. Abgedeckt sind die Ebenen 1, 2, 3, 6, 7, 8, A und W
+samt ihrer Mutationstests, zusammen 61 Mutationen. Nicht abgedeckt sind Ebene 4/5
+(brauchen echtes Excel) und Ebene 9 (braucht ein Sprachmodell).
 
-## Was beim ersten Push zu tun ist
+## Der erste Push — erledigt am 06.09.2026
 
-1. **`git init` im Ordner `Stoffverteilungsplan/`** — nicht in `Makros/`. Die Doku, die
-   CI-Konfiguration und die Referenzmappe liegen außerhalb von `Makros/`.
-2. **`.gitignore` liegt bei.** Sie schließt `modKonfig.bas` (Kennwort), alle `.xlsm`
-   außer `Vorlage/`, `Diagnose/`, `Sicherung/` und die Excel-Sperrdateien aus.
-   *Vor dem ersten Commit `git status` lesen und prüfen, dass `modKonfig.bas` wirklich
-   nicht dabei ist.*
-3. **`Vorlage/` ist schon angelegt** und enthält beides: die leere
-   `Stoffverteilungsplan_Template.xlsm` und `Referenzmappe.xlsm` (eingefrorene Kopie von
-   Mathematik Gym 10). Die zweite treibt die Mutationstests — in einer leeren Vorlage
-   greift keine Mutation. Beide nur bewusst austauschen. Wenn dir die echten Plandaten
-   im Repo nicht passen, tausche `Referenzmappe.xlsm` gegen eine ausgedünnte Mappe;
-   nötig sind nur ein paar gefüllte Planzeilen.
-4. **Einmal lokal `cd Makros && python3 pruefe_alles.py`** und erst pushen, wenn das
-   grün ist. Sonst ist der erste CI-Lauf rot, und niemand weiß, ob an der Pipeline oder
-   an der Sache.
-5. **Aus den fünf bestätigten Befunden oben fünf Issues machen** — Vorlage
-   `.github/ISSUE_TEMPLATE/gegenlese-befund.yml`. Sie sind bewusst nicht repariert
-   worden; der Nutzer wollte sie als Issues.
+1. `git init` im Projektordner, Historie des bestehenden Repos übernommen (kein
+   Force-Push, die beiden Ausgangs-Commits sind erhalten).
+2. **`.gitignore` auf eine Whitelist umgestellt.** Erst wird alles ignoriert, dann
+   gezielt zugelassen — Begründung in der Datei selbst und in `CLAUDE.md`.
+   `modKonfig.bas` wurde vor dem Commit ausdrücklich gegengeprüft.
+3. **`.gitattributes` ergänzt.** `core.autocrlf=input` hätte beim Commit CRLF nach LF
+   umgeschrieben und dabei `Makros_verteilen.cmd` (Batch braucht CRLF) sowie die
+   `.ps1` angefasst. Jetzt gilt `* -text`: Git fasst Zeilenenden nicht an.
+4. **`Vorlage/` anonymisiert** — siehe oben.
+5. **Acht Issues angelegt** (#1–#8), die fünf bestätigten Befunde vorher ein zweites
+   Mal im Code nachgeprüft.
+6. Erster CI-Lauf: **grün**, alle 11 Schritte.
 
-Offen und vom Nutzer zu entscheiden: ob `Bilder/` (Schullogos) mit ins Repo soll.
+Entschieden: `Bilder/` bleibt draußen. Der Code greift nicht mehr darauf zu — die Logos
+liegen fest in der Mappe (`modKalender.bas:559`, `LIESMICH.txt:246`). Ebenso draußen
+bleiben die Lambacher-Schweizer-`.docx` (Verlagsmaterial, 1,08 MB Binärdaten).
+
+**Abgemachte Pflicht für die Zukunft:** Legt der Nutzer neue Verzeichnisse oder Dateien
+an, muss vor dem Commit nachgefragt werden, ob sie ins Repository sollen. Die Whitelist
+schützt vor Versehen in die eine Richtung — in die andere Richtung schützt nur die
+Nachfrage.
