@@ -1,0 +1,24 @@
+' ====================================================================
+'  Dieser Code gehoert in das Modul DER ARBEITSMAPPE
+'  (VBA-Editor -> links im Projektfenster doppelklicken auf:
+'   DieseArbeitsmappe )
+'  Einfach den kompletten Text unten hineinkopieren - vorhandenen
+'  Code vorher loeschen.
+'
+'  Zweck: Der Blattschutz selbst wird mit der Datei gespeichert. Nur
+'  die Bedienbarkeit der Gliederung (die kleine Plus/Minus-Schaltflaeche
+'  ueber den ausgeblendeten Spalten P bis S im Wochenplan) muss nach
+'  jedem Oeffnen der Mappe einmal neu erlaubt werden. Genau das macht
+'  Blattschutz_Nachziehen.
+'
+'  Ohne diesen Code funktioniert alles Uebrige trotzdem - dann laesst
+'  sich die Gliederung erst nach dem ersten Klick auf eine Schaltflaeche
+'  wieder auf- und zuklappen.
+' ====================================================================
+
+Option Explicit
+
+Private Sub Workbook_Open()
+    On Error Resume Next
+    modSchutz.Blattschutz_Nachziehen
+End Sub

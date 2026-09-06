@@ -1,0 +1,31 @@
+# =====================================================================
+#  Git fasst Zeilenenden in diesem Projekt GAR NICHT an.
+#
+#  Der teuerste Fehler dieses Projekts war ein Werkzeug, das eine Datei
+#  stillschweigend umgeschrieben hat: modAnleitung.bas kam als UTF-8
+#  zurueck, jeder Umlaut durch U+FFFD ersetzt. Gerettet wurde sie nur,
+#  weil die Vorgaengerfassung noch beim Nutzer lag.
+#
+#  Git wuerde hier dasselbe tun, nur leiser. Mit core.autocrlf=input
+#  (so steht es auf dem Rechner des Nutzers) schreibt es beim Commit
+#  CRLF nach LF um. Betroffen waeren:
+#     Makros_verteilen.cmd       Batch-Dateien wollen CRLF
+#     Makros_verteilen.ps1       liegt gemischt vor (191 CRLF, 213 LF)
+#     LIESMICH_Makros_verteilen.txt
+#
+#  Die .bas-Module liegen als cp1252 mit LF vor, und pruefe_module.py
+#  (Ebene 7) prueft genau das. Eine Umwandlung durch Git waere eine
+#  Aenderung, die in keinem Diff als Absicht erkennbar ist.
+#
+#  "-text" heisst: byteweise speichern, byteweise ausliefern, auf jedem
+#  Betriebssystem. Wer Zeilenenden aendern will, tut das bewusst und
+#  sieht es im Diff.
+# =====================================================================
+* -text
+
+#  Ausdruecklich binaer: nie als Text behandeln, nie zu mergen versuchen.
+*.xlsm binary
+*.xlsx binary
+*.docx binary
+*.pdf  binary
+*.png  binary

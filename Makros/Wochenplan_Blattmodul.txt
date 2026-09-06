@@ -1,0 +1,26 @@
+' ====================================================================
+'  Dieser Code gehoert in das BLATTMODUL des Tabellenblatts
+'  "Wochenplan"  (VBA-Editor -> links im Projektfenster doppelklicken
+'  auf:  Tabelle1 (Wochenplan) )
+'  Einfach den kompletten Text unten hineinkopieren - vorhandenen
+'  Code vorher loeschen.
+'
+'  Worksheet_SelectionChange  blendet die vier kleinen Schaltflaechen
+'                             am linken Rand ein.
+'  Worksheet_Change           vergibt im fixierten Zustand einen neuen
+'                             Referenz-Code, sobald in einer Zeile ohne
+'                             Code ein Lehrplan-Code (Spalte F)
+'                             eingetragen wird.
+' ====================================================================
+
+Option Explicit
+
+Private Sub Worksheet_SelectionChange(ByVal Target As Range)
+    On Error Resume Next
+    modWochenplan.UpdateRowButtons Target
+End Sub
+
+Private Sub Worksheet_Change(ByVal Target As Range)
+    On Error Resume Next
+    modWochenplan.OnPlanChange Target
+End Sub
