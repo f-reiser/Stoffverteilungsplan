@@ -1,0 +1,56 @@
+name: Befund aus der Gegenlese (Ebene 9)
+description: Ein von einem unabhängigen Agenten gemeldeter und nachgeprüfter Befund
+labels: ["gegenlese"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ablauf und Auftragstext stehen in `Doku/Ebene9_Gegenlese.md`.
+        **Nur bestätigte Befunde anlegen** — jeder Befund wird vorher selbst im Code
+        nachgeprüft.
+
+  - type: input
+    id: stelle
+    attributes:
+      label: Stelle
+      description: Datei und Prozedur
+      placeholder: modSelbsttest.bas / T1b_Zustand
+    validations:
+      required: true
+
+  - type: textarea
+    id: beobachtung
+    attributes:
+      label: Was zu sehen ist
+      description: Das beobachtete Verhalten, ohne Deutung.
+    validations:
+      required: true
+
+  - type: textarea
+    id: anforderung
+    attributes:
+      label: Warum das ein Problem ist
+      description: Bezug auf die Anforderung, möglichst mit Zitat aus LIESMICH.txt.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: sicherheit
+    attributes:
+      label: Sicherheitsgrad
+      options:
+        - sicher (im Code nachweisbar)
+        - vermutlich (vom Laufzeitverhalten abhängig)
+        - unklar (die Anforderung gibt es nicht eindeutig her)
+    validations:
+      required: true
+
+  - type: textarea
+    id: pruefung
+    attributes:
+      label: Welche Prüfung hätte das finden müssen?
+      description: |
+        Die wichtigste Frage. Wenn keine bestehende Prüfung greift, gehört die
+        fehlende Prüfung mit in dieses Issue — vor der Reparatur, nicht danach.
+    validations:
+      required: true

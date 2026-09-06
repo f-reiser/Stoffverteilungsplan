@@ -1,0 +1,23 @@
+Attribute VB_Name = "modKonfig"
+Option Explicit
+
+
+'=====================================================================
+'  Stoffverteilungsplan - persoenliche Einstellungen: VORLAGE
+'  ------------------------------------------------------------------
+'  Diese Datei ist NICHT zum Importieren gedacht. Sie existiert nur,
+'  damit die Pruefskripte im Repository laufen koennen.
+'
+'  Das echte modKonfig.bas enthaelt das Blattschutz-Kennwort und wird
+'  deshalb von .gitignore ausgeschlossen. Ohne ein Modul dieses Namens
+'  kennt aber keines der anderen Module die Konstante SCHUTZ_PW, und
+'  vbacheck.py meldet an 14 Stellen zu Recht "nicht deklariert".
+'  pruefe_alles.py setzt darum diese Vorlage ein, wenn das echte Modul
+'  fehlt.
+'
+'  Wer das Kennwort aendern will, macht das im echten modKonfig.bas und
+'  NUR dort - und zwar solange die Mappe ungeschuetzt ist. Sonst laesst
+'  sich der Blattschutz mit dem alten Kennwort nicht mehr aufheben.
+'=====================================================================
+
+Public Const SCHUTZ_PW As String = "BITTE-EIGENES-KENNWORT-EINTRAGEN"

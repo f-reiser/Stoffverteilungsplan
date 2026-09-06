@@ -1,0 +1,738 @@
+======================================================================
+ Stoffverteilungsplan - VBA-Module        (Stand 05.09.2026, 10. Fassung)
+======================================================================
+
+Diese Anleitung steht nach dem Setup auch als Tabellenblatt
+"Anleitung" in der Mappe.
+
+
+----------------------------------------------------------------------
+ DATEIEN
+----------------------------------------------------------------------
+  modStart.bas        die vier Makros, die man von Hand starten darf.
+                      Das EINZIGE Modul ohne "Option Private Module"
+                      und damit das einzige, das in der Makroliste
+                      (Alt+F8) auftaucht.
+  modKonfig.bas       NUR EINMAL importieren - enthaelt das Kennwort
+                      fuer den Blattschutz. Updates fassen es nie an.
+                      Bekommt bewusst KEIN Option Private Module,
+                      damit es nie wieder importiert werden muss.
+  modWochenplan.bas   Kern: Zeilen verschieben/einfuegen/loeschen,
+                      Formeln, Referenz-Codes, Layout-Erkennung
+  modKalender.bas     Unterrichtswochen, Ferienzeilen, Ferientabelle
+  modKopf.bas         Titelzeile mit Logo, PDF-Export
+  modSteuerung.bas    Blatt "Steuerung", Fixieren
+  modSchutz.bas       Blattschutz
+  modAnleitung.bas    das Blatt "Anleitung". ANLEITUNG_STAND bei jeder
+                      inhaltlichen Aenderung am Text hochzaehlen - sonst
+                      bleibt ein vorhandenes Blatt stehen und behaelt
+                      seinen alten Text (genau so ist der Abschnitt
+                      "Eine neue Fassung der Mappe" nach dem Update
+                      nirgends aufgetaucht). Preis: von Hand ergaenzter
+                      Text im Blatt geht bei einem Standwechsel verloren (das zweite Blatt "Update"
+                      bzw. "VBA-Update" ist ENTFALLEN und wird beim
+                      Einrichten geloescht)
+  modUebernahme.bas   Umstieg: Daten aus einer aelteren Mappe holen
+  modSelbsttest.bas   Selbsttest (nur fuer die Entwicklung noetig)
+
+  Wochenplan_Blattmodul.txt     -> Objekt "Tabelle1 (Wochenplan)"
+  DieseArbeitsmappe_Modul.txt   -> Objekt "DieseArbeitsmappe"
+
+  vbacheck.py       statische Pruefung der .bas-Dateien, VOR jeder
+                    Auslieferung laufen lassen:  python3 vbacheck.py mod*.bas
+  pruefe_datei.py   Abnahmepruefung fertiger .xlsm-Dateien von aussen:
+                      python3 pruefe_datei.py ..\*.xlsm
+                    und die Selbstpruefung des Pruefers:
+                      python3 pruefe_datei.py --selbsttest <eine gefuellte Datei>
+
+
+----------------------------------------------------------------------
+ IMPORTIEREN
+----------------------------------------------------------------------
+ 1. Blattschutz aus: Blatt "Steuerung" -> "Blattschutz ein / aus".
+ 2. Alt+F11. Alle vorhandenen Module unter "Module" entfernen
+    ("Nein" beim Exportieren).
+    ACHTUNG: modKonfig NICHT entfernen, wenn es schon da ist - dort
+    steht das Kennwort. "Tabelle1 (Wochenplan)" und
+    "DieseArbeitsmappe" bleiben ebenfalls stehen.
+ 3. Datei -> Datei importieren, alle .bas nacheinander (modStart
+    nicht vergessen - ohne es ist die Makroliste leer).
+ 4. Doppelklick "Tabelle1 (Wochenplan)": Code loeschen, Inhalt von
+    Wochenplan_Blattmodul.txt hineinkopieren.
+ 5. Doppelklick "DieseArbeitsmappe": Code loeschen, Inhalt von
+    DieseArbeitsmappe_Modul.txt hineinkopieren.
+ 6. Excel: Alt+F8 -> Setup_Stoffverteilungsplan -> Ausfuehren.
+ 7. Speichern als .xlsm.
+
+ Beim Update von einer aelteren Fassung: modKonfig einmal importieren
+ und das eigene Kennwort dort eintragen, solange die Mappe
+ ungeschuetzt ist. Danach nie wieder anfassen.
+
+
+----------------------------------------------------------------------
+ UPDATE-STRATEGIE  (das Blatt "Update" in der Mappe erklaert dasselbe)
+----------------------------------------------------------------------
+ Ausgangslage: Makros stecken in der Datei, nicht neben ihr. Wer eine
+ neue Fassung der Makros an Kolleginnen und Kollegen verteilen will,
+ hat drei Wege - und zwei davon sind Sackgassen:
+
+   a) Module von Hand importieren.  Funktioniert, ist aber zwoelf
+      Schritte im VBA-Editor. Niemandem zuzumuten, den man nicht
+      daneben sitzen hat.
+
+   b) Skript, das xl/vbaProject.bin in der xlsm austauscht.
+      Technisch die sauberste Loesung (siehe Makros_verteilen.ps1),
+      scheitert aber an Windows: unsignierte PowerShell-Skripte laufen
+      nicht ohne Aenderung der Ausfuehrungsrichtlinie. Eine .exe
+      (PyInstaller) waere noch schlechter: unsigniert schlaegt
+      SmartScreen an ("Unbekannter Herausgeber"), und
+      PyInstaller-Dateien werden von Virenscannern reihenweise falsch
+      erkannt. In der Schule gibt das nur Aerger.
+
+   c) DER GEWAEHLTE WEG - Richtung umdrehen.
+      Nicht die neuen Makros in die alte Datei, sondern die alten
+      DATEN in die neue Datei. Die neue Mappe bringt die aktuellen
+      Makros schon mit; sie holt sich per Knopfdruck die Inhalte aus
+      der bisherigen Datei.
+
+ Ablauf fuer die Kollegin / den Kollegen:
+   1. Die neue, leere Mappe oeffnen (Makros aktivieren).
+   2. Blatt "Steuerung" -> "Daten aus bisheriger Datei uebernehmen".
+   3. Die eigene bisherige Datei auswaehlen.
+   4. Speichern - am besten unter dem Namen der bisherigen Datei.
+
+ Uebernommen wird (modUebernahme.Daten_Uebernehmen):
+   - Einstellungen: Schuljahresstart, Stunden pro Woche, verfuegbare
+     Wochen, der komplette Kalender mit den Haken, die Ferientabelle
+     und die vier Kopfangaben.
+   - Lernbereiche: alle Zeilen bis zur Summenzeile.
+   - Wochenplan: pro Inhaltszeile die Spalten E-K und M.
+   Alles Abgeleitete (Formeln, Referenz-Codes, Ferienzeilen,
+   Titelzeile, Blattschutz) wird danach von
+   Setup_Stoffverteilungsplan frisch gebaut.
+
+ Wichtige Eigenschaften:
+   - Die alte Datei wird schreibgeschuetzt geoeffnet und NIE
+     veraendert. Auch bei einem Fehler bleibt sie unangetastet.
+   - Waehrend des Lesens sind Ereignisse abgeschaltet, damit die
+     (aelteren) Makros der alten Datei nicht anlaufen.
+   - Die Uebernahme geht nur in eine noch leere Mappe. Steht im
+     Wochenplan schon etwas, bricht sie ab. Schutz vor dem
+     teuren Fehlklick.
+   - Es braucht KEINE Einstellung im Trust Center, keine
+     Ausfuehrungsrichtlinie, keine Signatur. Eine zweite Mappe
+     oeffnen und Zellen lesen darf Excel von Haus aus.
+
+ Was schon schiefging (und jetzt geprueft wird):
+   - Die erste Fassung hat den Wochenplan vollstaendig GELESEN und
+     trotzdem nur EINE Zeile geschrieben. Schuld war eine Sicherung
+     "If zeile > PlanLastRow(z) Then Exit For". PlanLastRow sucht mit
+     End(xlUp) von unten nach Inhalt - in der noch leeren Zielmappe
+     findet es nichts und liefert immer die erste Planzeile. Nach der
+     ersten geschriebenen Zeile war die Bedingung erfuellt.
+     LEHRE: In einer leeren Mappe taugt keine Funktion etwas, die sich
+     an vorhandenem Inhalt orientiert.
+   - Die Lernbereiche kamen ohne die Rechenspalten F bis I an, und die
+     Summenzeile wurde ueberschrieben. Ursache: die Vorlage haelt nur
+     eine Handvoll Zeilen zwischen Ueberschrift und Summe bereit.
+     LbPlatzSchaffen legt jetzt genau so viele an, wie gebraucht
+     werden, und modWochenplan.Lernbereiche_Aufbauen baut F bis I und
+     die Summenformel aus dem erkannten Layout neu.
+   - modSelbsttest, Abschnitt 10 spielt seit 05.09.2026 den ganzen
+     Umstieg durch: Mappe als temporaere Datei wegschreiben, Inhalt
+     merken, Wochenplan und Lernbereiche leerraeumen, uebernehmen,
+     Zelle fuer Zelle vergleichen. Ein Test, der nur die Lesefunktionen
+     prueft, haette keinen der beiden Fehler gefunden.
+
+ NACH dem Einlesen laufen automatisch Setup_Stoffverteilungsplan und
+ UW_Und_Ferien_Generieren, beide im stillen Modus (sonst kaemen drei
+ Meldungsfenster hintereinander). Ein Fehler geht dabei nicht
+ verloren: ReportError schreibt ihn auch still nach LastError, und
+ Daten_Uebernehmen fragt das ab. Der Anwender muss danach nur noch
+ speichern.
+
+ Die Quelle wird nach dem Lesen geschlossen und das anschliessend
+ noch einmal nachgeprueft (ZuMachen). Grund: bleibt sie offen, stehen
+ ihre Makros unter Alt+F8 in der Liste - Excel zeigt dort die Makros
+ ALLER geoeffneten Mappen, jeweils mit dem Dateinamen davor. Das
+ sieht aus, als gaebe es plotzlich alles doppelt, ist aber nur die
+ zweite offene Datei.
+
+ Fuer die Fachschaft, wenn eine neue Fassung gebaut wird:
+   Module wie unter IMPORTIEREN beschrieben in eine frische Mappe
+   holen, Setup laufen lassen, als Vorlage speichern - und diese
+   eine Datei verteilen. Der Rest passiert bei den Kollegen ueber
+   den Uebernehmen-Knopf.
+
+
+----------------------------------------------------------------------
+ SCHALTFLAECHEN
+----------------------------------------------------------------------
+ Blatt "Steuerung", oben (Alltag):
+   Unterrichtswochen und Ferien erzeugen
+   Stoffverteilungsplan fixieren
+   Fixierung aufheben
+   Als PDF exportieren
+
+ Blatt "Steuerung", unten (selten):
+   Einrichtung / Reparatur
+   Blattschutz ein / aus
+
+ Blatt "Einstellungen", direkt bei den Daten:
+   Ferien aus Kalender vorschlagen   (ueber der Ferientabelle)
+   Kopf uebernehmen                  (bei den vier Kopfangaben)
+
+ Ohne Schaltflaeche, nur ueber Alt+F8:
+   Wochenplan_Aktualisieren      rufen die Makros selbst auf
+   Anleitungsblaetter_Erzeugen   ueberschreibt eigene Ergaenzungen
+                                 an der Anleitung - fragt vorher nach
+   Diag_Wochenplan               Pruefbericht als Textdatei
+
+
+----------------------------------------------------------------------
+ TITELZEILE
+----------------------------------------------------------------------
+ "Kopf uebernehmen" schreibt aus den vier Kopfangaben in "Wochenplan"
+ und "Lernbereiche" EINE Titelzeile aus normalen Zellen, dazu eine
+ schmale Abstandszeile. KOPF_ZEILEN = 2.
+
+ Die Zeile wird in drei verbundene Bloecke geteilt - anders bekommt
+ man in einer Zeile keine drei Ausrichtungen:
+
+   links   das Schullogo (ohne Logo: der Schulname)
+   Mitte   Fach und Klasse, ZENTRIERT
+   rechts  Lehrkraft und Schuljahr
+
+ Alle drei in derselben Schrift und Groesse (14 pt, fett). Um die
+ ganze Zeile liegt ein Rahmen im Blauton der Tabellenueberschrift.
+ Der Schulname steht bewusst nicht als Text da - er steht im Logo.
+
+ Die Blockgrenzen werden nach BREITE IN PUNKT bestimmt: links so
+ breit wie das Logo plus Rand, rechts 200 pt, der Rest in die Mitte.
+ Nach Spaltenzahl ginge es nicht - die Spalten sind in beiden
+ Blaettern voellig unterschiedlich breit.
+
+ WIEDERHOLBAR DURCH NEUBAU: Bei jedem Lauf sammelt BlockHoehe die
+ Zeilen oberhalb der Ueberschrift ein, die zum Kopf gehoeren (von
+ colFirst aus einzeilig verbunden ODER voellig leer), loescht sie und
+ fuegt KOPF_ZEILEN frische ein. Ein zweiter Aufruf ist damit harmlos,
+ und aeltere Fassungen raeumen sich von selbst auf. Freie Formen
+ oberhalb der Daten werden mit entfernt - ausgenommen die Logos.
+
+
+----------------------------------------------------------------------
+ LOGOS
+----------------------------------------------------------------------
+ Die Logos liegen FEST IN DER MAPPE, je einmal in "Wochenplan" und
+ "Lernbereiche", benannt wpKopfLogo_<n> mit n = Zeile der Schulliste.
+ Kopf_Aktualisieren blendet nur das zur gewaehlten Schule passende
+ ein, blendet die anderen aus und zieht es ueber die HOEHE auf Mass.
+
+ KEIN Copy/Paste mehr. Das Kopieren einer Grafik rastert sie in der
+ aktuellen Anzeigegroesse neu - so ist am 03.09.2026 aus einem
+ 714x80-Logo ein unlesbares 66x55-Bild geworden. Ein eingebettetes
+ Bild nur ein- und auszublenden und zu skalieren kostet dagegen nichts
+ an Qualitaet: Excel speichert immer das Original und skaliert erst
+ bei der Anzeige.
+
+ Nur die HOEHE setzen, nie zusaetzlich die Breite - sonst wird das
+ Logo platt gedrueckt, auch bei LockAspectRatio. Der Selbsttest
+ prueft das Seitenverhaeltnis (muss > 3 sein).
+
+ Vor dem Loeschen der alten Titelzeile werden die Logos mit
+ Placement = xlFreeFloating von der Zelle geloest, sonst nimmt Excel
+ sie unter Umstaenden mit.
+
+ Damit ist der ganze frühere Apparat entfallen, der die Bilder aus
+ dem Ordner "Bilder" gesucht, ueber Wortabgleich zugeordnet und
+ eingelesen hat - rund 200 Zeilen. Eine weitere Schule braucht ein
+ zusaetzliches Bild in der Mappe; das wird direkt in der Datei
+ eingesetzt, nicht per Makro.
+
+
+----------------------------------------------------------------------
+ PDF-EXPORT
+----------------------------------------------------------------------
+ ACHTUNG, bekannte Einschraenkung: PrintTitleRows steht zwar auf der
+ Ueberschriftenzeile, WIRKT aber nicht. Excel wiederholt Titelzeilen
+ nur, wenn sie AUSSERHALB des Druckbereichs liegen - und der beginnt
+ hier bei Zeile 1, damit der Titelblock auf Seite 1 mitkommt. Beides
+ zugleich geht nicht. Der Titelblock hat den Vorrang bekommen; wer
+ lieber die wiederholte Ueberschrift haette, muesste den Druckbereich
+ erst unter dem Titelblock beginnen lassen.
+
+ "Als PDF exportieren" im Blatt "Steuerung". Gefragt wird nur nach
+ DIN A4 oder DIN A3.
+
+   Querformat, immer - das ist nicht einstellbar.
+   Breite skaliert auf eine Seite: FitToPagesWide = 1, Zoom = False,
+   FitToPagesTall = False. Es rutscht also nichts seitlich weg.
+   Druckbereich Wochenplan   B bis zur letzten gefuellten Zeile
+   Druckbereich Lernbereiche A bis J
+   Wiederholungszeile: nur die Ueberschriftenzeile. Die Titelzeile
+   steht bewusst nur auf der ersten Seite.
+
+ WELCHE BLAETTER INS PDF KOMMEN: Workbook.ExportAsFixedFormat nimmt
+ ALLE sichtbaren Blaetter - deshalb werden die uebrigen kurz
+ ausgeblendet und danach wieder eingeblendet (auch im Fehlerfall).
+ Das ist der einzige Weg, der sich nicht auf undokumentiertes
+ Verhalten der Blattauswahl verlaesst. Zwei Irrwege davor:
+   ActiveWindow.SelectedSheets.ExportAsFixedFormat -> Compile-Fehler,
+     die Methode gibt es auf einer Sheets-Auflistung nicht.
+   ThisWorkbook.ExportAsFixedFormat mit Blattauswahl -> schrieb
+     trotzdem alle 23 Seiten der Mappe ins PDF.
+
+ KOPF- UND FUSSZEILE: Die Mappe trug noch die alte Kopfzeile
+ "&H&Z&S&C&P&R&10Schuljahr ..." - &Z ist der vollstaendige PFAD der
+ Datei. Im PDF stand damit die SharePoint-Adresse des Lehrers ueber
+ jeder Seite. Zwei Lehren daraus:
+   1. Die Kopf-/Fusszeilen sind in der Mappe selbst geleert worden.
+   2. Im Makro werden sie ZUERST und mit PrintCommunication = TRUE
+      geleert. Unter PrintCommunication = False kamen die
+      Leer-Zuweisungen nicht an. Danach wird gegengeprueft und
+      noetigenfalls wiederholt.
+
+ Ordner und Dateiname kommen aus Application.GetSaveAsFilename, also
+ dem gewohnten Windows-Dialog - der warnt auch selbst, bevor er eine
+ vorhandene Datei ersetzt. Vorgeschlagen wird der Ordner der Mappe
+ (bei einer SharePoint-Adresse Application.DefaultFilePath) und ein
+ Name aus Fach und Klasse.
+
+ Das Papierformat steht in einer Auswahlliste im Blatt "Steuerung"
+ direkt unter der Schaltflaeche. Die Zelle traegt den Namen
+ wpPdfFormat - so findet modKopf sie ohne feste Zeilennummer. Ein
+ MsgBox mit Ja/Nein/Abbrechen gibt es dafuer nicht mehr; VBA-MsgBox
+ kann keine Auswahllisten.
+
+ Die Datei landet neben der Mappe, benannt nach Fach und Klasse.
+ Liegt die Mappe im Web (SharePoint-URL), wird der Desktop genommen.
+
+ Waehrend der Seiteneinrichtung ist Application.PrintCommunication
+ aus - sonst wird jede einzelne Eigenschaft mit dem Druckertreiber
+ abgestimmt, und das dauert sehr lange.
+
+ Die gestrichelten Seitenumbruchlinien, die Excel nach jedem
+ Druckvorgang einblendet, schaltet SeitenumbruecheAus wieder ab. Der
+ Aufruf haengt am Ende von FastOff, gilt also nach jeder Makroaktion.
+
+
+----------------------------------------------------------------------
+ PRUEFEN, OB DIE PRUEFUNGEN TAUGEN
+----------------------------------------------------------------------
+ ANLASS (05.09.2026, Frage des Nutzers): Ein gruener Test heisst nur
+ dann etwas, wenn er bei einem echten Fehler auch rot wird. In diesem
+ Projekt war das nachweislich NICHT immer so:
+
+   Der Check "Keine leeren Zeilen am Ende des Plans" hat "ok"
+   gemeldet, waehrend 35 leere Zeilen unter der Tabelle standen. Er
+   begann bei PlanLastRow und suchte nach OBEN - die Zeilen lagen
+   darunter. Der Check hatte denselben blinden Fleck wie der Fehler,
+   den er finden sollte. Und die Python-Simulation des Imports meldete
+   im selben Moment "0 Abweichungen", weil sie nur den Bereich
+   betrachtete, in den geschrieben wurde.
+
+ Daraus sind drei Ebenen geworden, jede mit einem eigenen Nachweis:
+
+ 1. vbacheck.py - statische Pruefung der Module.
+    Jede Regel wird mit einem KUENSTLICH eingebauten Fehler
+    gegengeprueft. Am 05.09.2026 kamen zwei dazu:
+      "Sprungmarken": "GoTo Nirgendwo" muss gemeldet werden, "GoTo
+      Fail" nicht. (Vorher standen "fail" und "cleanfail" schlicht als
+      Woerter in der Ausnahmeliste - jede andere Sprungmarke war ein
+      Fehlalarm, und ein Sprung ins Leere fiel nicht auf.)
+      Regel 1b "modulweite Deklaration nach der ersten Prozedur":
+      Dim, Const und Private auf MODULEBENE duerfen ausschliesslich im
+      Deklarationsteil ganz oben stehen. Zwischen zwei Prozeduren
+      meldet Excel "Nach End Sub, End Function oder End Property
+      koennen nur Kommentare stehen" und danach "Variable nicht
+      definiert" an jeder Verwendung. Genau das ist passiert, weil
+      drei Konstanten dort standen, wo sie inhaltlich hingehoeren -
+      direkt vor der Prozedur, die sie benutzt. Naheliegend, lesbar,
+      in VBA verboten. Innerhalb einer Prozedur bleibt Dim erlaubt.
+      Gegenprobe: die drei Zeilen kuenstlich zurueckverlegt -> drei
+      Meldungen; an ihrem richtigen Platz -> keine, und die 29
+      Public Const im Deklarationsteil von modWochenplan bleiben
+      unbeanstandet.
+
+ 2. pruefe_datei.py - Abnahme fertiger .xlsm von aussen, ohne Excel.
+    "python3 pruefe_datei.py --selbsttest <gefuellte Datei>" baut jeden
+    Fehler kuenstlich ein und verlangt, dass die zustaendige Regel
+    anschlaegt. Stand 05.09.2026: 5 von 5. Die Regel "leerzeilen"
+    laesst sich mit openpyxl nicht kuenstlich erzeugen - sie wurde
+    stattdessen gegen die echte beschaedigte Datei validiert, was der
+    staerkere Nachweis ist.
+
+ 3. Selbsttest in Excel - Alt+F8, "Selbsttest".
+    Dazu NEU: "Selbsttest_pruefen". Der baut neun definierte Fehler in
+    die Mappe ein und verlangt, dass GENAU der dafuer zustaendige Check
+    rot wird - und dass er nach dem Zuruecknehmen wieder gruen ist.
+    Angesetzt wird nur an den Abschnitten 0 und 1b, weil die nichts
+    anfassen und nichts reparieren; in einem Abschnitt, der selbst
+    aufraeumt, waere das Ergebnis wertlos.
+    Die zehn Mutationen: Leerzeile unter der Tabelle, Rechenspalte F
+    geleert, Summenformel verbogen, Ferien-Kennzeichen entfernt, Blatt
+    "Update" angelegt, Stand der Anleitung verstellt, Blattschutz
+    aufgehoben, Unterrichtswochen verdreht, Makro von einer
+    Schaltflaeche genommen, zwei Schaltflaechen auf dasselbe Makro.
+
+    ERSTER ECHTER LAUF (05.09.2026): 9 von 9 Mutationen erkannt - und
+    die Ruecknahme von Mutation 9 schlug fehl. Ursache: Sabotage und
+    Ruecknahme haben die Schaltflaeche beide ueber "die erste Form MIT
+    Makro" gesucht. Nach der Sabotage war das eine ANDERE Form; die
+    Ruecknahme hat das gemerkte Makro also der zweiten Schaltflaeche
+    verpasst und die erste leer gelassen. Zwei kaputte Knoepfe.
+    Daraus drei Aenderungen:
+      - Zurueckgenommen wird ueber den NAMEN der Form, nie ueber eine
+        Eigenschaft, die die Sabotage selbst veraendert hat.
+      - Neue Pruefung "Jede Schaltflaeche hat ihr eigenes Makro". Der
+        alte Check sah nur LEERE Ziele - eine Schaltflaeche mit dem
+        Makro einer anderen war unsichtbar. Mutation 10 weist die neue
+        Pruefung nach.
+      - Die Schlussmeldung warnt jetzt ausdruecklich, wenn eine
+        Sabotage nicht sauber zurueckgenommen wurde, samt Hinweis auf
+        "Einrichtung / Reparatur".
+    Nebenbefund: die Mappe hat sich im anschliessenden Selbsttest
+    selbst repariert, weil Abschnitt 10 Setup_Stoffverteilungsplan
+    aufruft und EnsureSteuerung alle Schaltflaechen neu baut.
+
+ REGEL AB JETZT: Zu jedem gemeldeten Fehler zuerst die Pruefung
+ schreiben, die ihn an der ECHTEN Datei des Nutzers rot macht - erst
+ danach reparieren. Eine Pruefung, die noch nie rot war, ist keine
+ Pruefung.
+
+ NEU dazu: Abschnitt 1b des Selbsttests ("Zustand der Mappe") sammelt
+ alle Pruefungen OHNE Nebenwirkung an einer Stelle. Genau deshalb kann
+ der Mutationstest dort ansetzen.
+
+
+----------------------------------------------------------------------
+ DIE MAKROLISTE (ALT+F8)
+----------------------------------------------------------------------
+ Excel zeigt dort JEDE Public Sub OHNE Argumente - und zwar aus ALLEN
+ gerade geoeffneten Mappen, die aus fremden Dateien mit dem
+ Dateinamen davor ('Datei.xlsm'!modXY.Sub). Zuletzt standen 30
+ Eintraege drin: FastOff, ResetKopfzeilen, EnsureRowButtons,
+ SeitenumbruecheAus und aehnliche interne Bausteine, die man von Hand
+ nie aufruft.
+
+ Seit 05.09.2026 tragen alle Module ausser modStart und modKonfig die
+ Zeile "Option Private Module". Sie sperrt NUR den Zugriff fremder
+ VBA-Projekte und blendet die Makroliste aus; innerhalb dieses
+ Projekts bleibt alles voll erreichbar (so steht es auch bei
+ Microsoft: die Public-Teile sind "weiterhin verfuegbar innerhalb des
+ Projekts, das das Modul enthaelt"). Cross-Modul-Aufrufe und
+ Shape.OnAction laufen unveraendert weiter.
+
+ Uebrig bleiben vier Eintraege, alle aus modStart:
+   Einrichtung_und_Reparatur       fuer den Fall, dass das Blatt
+                                   "Steuerung" selbst fehlt
+   Anleitungsblatt_neu_schreiben   ueberschreibt eigene Ergaenzungen
+   Diagnose                        Textdatei mit dem erkannten Layout
+   Selbsttest                      nur in einer Kopie mit "Test"
+                                   im Dateinamen
+
+ ZUSAETZLICH PRIVATE GEWORDEN (nichts ausserhalb ihres Moduls greift
+ darauf zu; mit ~/vbacheck.py und einer Querverweisliste geprueft):
+   modKalender    FormatFerienRow, NormDate
+   modSchutz      Blattschutz_Aufheben, SchreibbarPruefen
+   modSteuerung   EnsureSteuerung, KnoepfeAktualisieren
+   modWochenplan  AssignMissingCodes, KlassenWochenRow, KopfRow,
+                  Setup_Wochenplan, StdLastRow, StdListAddress,
+                  StdWocheRow, WeekSumRow
+
+ NACHGEWIESEN statt vermutet: Selbsttest, Abschnitt 0. Er ruft ueber
+ Application.Run eine leere Sonde (modWochenplan.SelbsttestProbe) in
+ einem Modul MIT Option Private Module auf - das ist derselbe
+ Aufloesungsweg, den Shape.OnAction benutzt. Als Gegenprobe dient
+ modStart.Probe_modStart (ohne Option Private Module). Dazu wird
+ geprueft, dass jede Schaltflaeche ein modulqualifiziertes Ziel hat.
+ Schlaegt das fehl, faellt es im ERSTEN Abschnitt auf und nicht erst
+ beim Kollegen.
+
+ Merke: Eine Public Sub MIT Argumenten steht ebenfalls nicht in der
+ Liste - deshalb hat Probe_modStart ein optionales Argument, das
+ nichts bedeutet.
+
+
+----------------------------------------------------------------------
+ DREI FALLEN, DIE ZWEIMAL ZUGESCHLAGEN HABEN
+----------------------------------------------------------------------
+ 1. LEERZEILEN, DIE NIEMAND SIEHT
+    LeereEndzeilenEntfernen hat bei PlanLastRow angefangen und von
+    dort nach OBEN gesucht. PlanLastRow sucht mit End(xlUp) nach
+    INHALT - die 35 nur formatierten Reservezeilen, die die Vorlage
+    mitbringt und die beim Einfuegen nach unten rutschen, lagen also
+    UNTERHALB des Bereichs, den die Routine ueberhaupt betrachtet hat.
+    Die Schleife brach in der ersten Runde ab, weil in PlanLastRow
+    selbst Inhalt steht.
+    Jetzt wird zuerst der Block von PlanLastRow+1 bis zur Unterkante
+    des Blattes (UsedRange, gedeckelt auf 500 Zeilen) am Stueck
+    geloescht, danach erst wie bisher von unten nach oben aufgeraeumt.
+    MERKSATZ: End(xlUp) und UsedRange beantworten zwei verschiedene
+    Fragen - "wo endet der Inhalt" und "wo endet das Blatt".
+
+ 2. WORKSHEETS.DELETE GEGEN DEN STRUKTURSCHUTZ
+    Blattschutz_Einrichten setzt ThisWorkbook.Protect Structure:=True.
+    Dagegen laeuft jedes Worksheets(...).Delete ins Leere - und unter
+    On Error Resume Next voellig lautlos. Das entfallene Update-Blatt
+    blieb deshalb stehen, ohne dass irgendwo ein Fehler auftauchte.
+    AltesBlattEntfernen hebt den Strukturschutz jetzt gezielt auf,
+    loescht, prueft nach und schuetzt wieder.
+    MERKSATZ: Alles, was die MAPPENSTRUKTUR aendert (Blatt anlegen,
+    loeschen, umbenennen, verschieben), braucht ThisWorkbook.Unprotect
+    - Schutz_Aus allein reicht nur, wenn man in einem FastOn-Block
+    sitzt.
+
+ 3. THISWORKBOOK.PATH IST NICHT IMMER EIN PFAD
+    Bei eingeschaltetem AutoSpeichern meldet Excel die
+    SharePoint-ADRESSE (https://...). Dorthin laesst sich mit
+    "Open ... For Output" nicht schreiben, und die alte
+    Rueckfallebene C:\Temp gibt es auf einem normalen Windows nicht -
+    der Selbsttestbericht ging verloren. BerichtSchreiben probiert
+    jetzt der Reihe nach Mappenordner, %TEMP%, Dokumente und C:\Temp;
+    die durchgefallenen Pruefungen stehen zusaetzlich in der
+    Schlussmeldung.
+
+
+----------------------------------------------------------------------
+ LERNBEREICHE: F BIS I UND DIE SUMMENZEILE
+----------------------------------------------------------------------
+ Die Spalten F (Wochen lt. Lehrplan), G (Geplante Stunden),
+ H (Geplante Wochen) und I (noch verfuegbare Wochen) sowie die
+ Summenzeile sind reine Rechenspalten. Bis 09/2026 standen sie als
+ feste Formeln im Blatt, mit fest verdrahteten Bezuegen wie
+ Einstellungen!$B$2 und $G$15:$G$52. Damit war "Lernbereiche" die
+ einzige Stelle im Projekt, die kaputtgeht, sobald jemand in
+ "Einstellungen" eine Zeile einfuegt - und die Vorlage hat ihre
+ Summenformel als =SUM(E10:E10) mitgebracht, also ins Leere gezeigt.
+
+ Seit 05.09.2026 baut modWochenplan.Lernbereiche_Aufbauen beides aus
+ dem erkannten Layout:
+   F  =ROUNDUP(E<r>/Einstellungen!$B$<Stunden pro Woche>,0)
+   G  ueber H mal Stunden pro Woche
+   H  Differenz der kumulierten Wochen aus Spalte G des Kalenders
+   I  Restwochen aus Spalte H des Kalenders
+ Dazu kamen zwei neue Beschriftungen in die Layout-Erkennung:
+ LBL_STDWOCHE ("Stunden pro Woche") und LBL_KLWOCHEN
+ ("verfuegbare Klassen-Wochen").
+
+ Die Summenzeile wird ueber das Wort "Summe" in Spalte D gefunden
+ (LBL_LBSUMME), nicht ueber eine Zeilennummer. Ihre SUM-Bereiche
+ laufen von der ersten Datenzeile bis zur letzten. Aufgerufen wird die
+ Routine von Setup_Stoffverteilungsplan - "Einrichtung / Reparatur"
+ repariert eine alte Mappe also von selbst.
+
+ Was der Anwender eintippt (A bis E und J), wird nie angefasst.
+
+
+----------------------------------------------------------------------
+ MELDUNGEN OHNE TON
+----------------------------------------------------------------------
+ Windows spielt zu JEDEM Meldungssymbol einen Systemklang ab. Bei
+ einer Mappe, die nach fast jeder Aktion ein OK-Fenster zeigt, ist das
+ nach zehn Minuten unertraeglich. modWochenplan.OhneTon streift den
+ Symbolanteil (vbInformation / vbExclamation / vbQuestion / vbCritical)
+ vom Stil ab, kurz bevor MsgBox gerufen wird - ohne Symbol bleibt der
+ Dialog stumm. Schaltflaechen (vbOKCancel, vbDefaultButton2) bleiben
+ unberuehrt, und die Auswertung fuer mLastError laeuft VORHER, der
+ Selbsttest merkt also weiterhin, wenn eine Warnung kam.
+ Die vier direkten MsgBox-Aufrufe in modSelbsttest wurden auf
+ vbOKOnly umgestellt.
+
+
+----------------------------------------------------------------------
+ KEINE FESTEN ZEILENNUMMERN
+----------------------------------------------------------------------
+ Die Makros suchen im Blatt "Einstellungen" bei jedem Lauf nach den
+ Beschriftungen und leiten daraus alle Bereiche ab:
+
+   "Schulwoche"                     Kalendertabelle
+   "Auswahlbereich..."              Stundenliste
+   "Stoffverteilungsplan fixiert"   Fixierungs-Schalter
+   "Ferien von"                     Ferientabelle
+   "Angaben fuer den Seitenkopf"    Fach/Klasse/Schule/Lehrkraft
+   "Schulliste"                     Name und Logo-Datei
+   "Schuljahresstart",
+   "verfuegbare Wochen insgesamt"   Bezugszellen der Formeln
+
+ Der Suchbereich (200 Zeilen x 30 Spalten) wird in EINEM Zugriff als
+ Array gelesen - zellweise waere das die haeufigste Bremse.
+
+ "Diagnose" zeigt im Bericht, welches Layout erkannt wurde.
+
+
+----------------------------------------------------------------------
+ BLATTSCHUTZ
+----------------------------------------------------------------------
+ Bearbeitbar bleiben:
+   Wochenplan      Spalten E bis K und M der Planzeilen
+   Lernbereiche    A bis E und J (Formelzellen gesperrt)
+   Einstellungen   Kopfwerte, Kalender, Ferientabelle, die vier
+                   Angaben zum Seitenkopf und die Schulliste
+   Steuerung / Anleitung                vollstaendig gesperrt
+
+ Die Stundenliste ist bewusst gesperrt: an ihr haengen die fuenf
+ Regeln der bedingten Formatierung und die Gueltigkeitsliste der
+ Spalte K.
+
+ Tabellenstruktur:
+   Wochenplan      Zeilen einfuegen/loeschen/verschieben/sortieren
+                   gesperrt - das koennen nur die Schaltflaechen
+   Lernbereiche
+   Einstellungen   Zeilen einfuegen und loeschen erlaubt
+   ganze Mappe     Blaetter verschieben/umbenennen/loeschen gesperrt
+
+ Unterhalb von Kalender, Ferientabelle, Schulliste und Lernbereichen
+ bleibt ein Vorrat leerer Zeilen frei. In den Rechenspalten sind nur
+ die Zellen gesperrt, in denen tatsaechlich eine Formel steht.
+
+ Technik: Der Schutz wird fuer die Dauer einer Makroaktion aufgehoben.
+ Aktionen, die nur EIN Blatt anfassen (Zeilen verschieben, einfuegen,
+ loeschen), entsperren auch nur dieses Blatt und berechnen auch nur
+ dieses neu. Kein UserInterfaceOnly - das geht beim Speichern verloren
+ und deckt Range.Merge und "kopierte Zellen einfuegen" nicht ab.
+
+ Kennwort: Konstante SCHUTZ_PW in modKonfig.
+
+
+----------------------------------------------------------------------
+ GESCHWINDIGKEIT
+----------------------------------------------------------------------
+ Drei Stellen machen den Unterschied beim Verschieben von Zeilen:
+   1. nur das betroffene Blatt ent- und wieder sperren
+   2. nur das betroffene Blatt neu berechnen
+   3. beim reinen Verschieben KEIN Formelneuaufbau - alle Formeln sind
+      zeilenrelativ und stimmen weiterhin; nur die Referenz-Codes
+      werden nachgezogen
+ Den vollen Neuaufbau macht weiterhin alles, was die Struktur aendert
+ (Einfuegen, Loeschen, Unterrichtswochen erzeugen).
+
+
+----------------------------------------------------------------------
+ SELBSTTEST
+----------------------------------------------------------------------
+ modSelbsttest spielt die riskanten Ablaeufe real in Excel durch und
+ schreibt einen Bericht als Selbsttest_Bericht.txt neben die Mappe.
+ Rund 80 Pruefungen in acht Abschnitten: Aufbau und Layout,
+ Formelneuaufbau, Unterrichtswochen und Ferien erzeugen, Verschieben
+ ueber eine Ferienzeile hinweg, Einfuegen und Loeschen, Fixieren und
+ Code-Vergabe, Blattschutz (auch: laesst sich bei aktivem Schutz noch
+ arbeiten?), Titelblock und Seiteneinrichtung fuers PDF.
+
+ Abschnitt 8 prueft ausdruecklich, dass ein ZWEITER Aufruf von
+ "Kopf uebernehmen" keinen zweiten Block einfuegt und dass der Plan
+ selbst dabei Zeichen fuer Zeichen unveraendert bleibt. Exportiert
+ wird im Test nicht - nur die Seiteneinrichtung, damit keine Datei
+ zurueckbleibt und ein fehlender Druckertreiber den Lauf nicht kippt.
+
+ Aufruf:  Alt+F8  ->  Selbsttest
+
+ SICHERUNG: Der Test laeuft NUR, wenn "Test" im Dateinamen steht. Er
+ veraendert die Mappe unterwegs - er gehoert in eine Kopie, niemals in
+ den echten Plan.
+
+ Kernidee sind die Rundlaeufe: eine Aktion und ihr Gegenstueck muessen
+ den Plan Zeichen fuer Zeichen so hinterlassen wie vorher (Snap-
+ Vergleich ueber B, E, F bis K und M jeder Zeile). Damit fallen auch
+ Fehler auf, die gar keine Fehlermeldung erzeugen. Zusaetzlich wird
+ nach jedem Verschieben geprueft, dass sich ueberhaupt etwas geaendert
+ hat - sonst wuerde ein stiller Abbruch als "bestanden" durchgehen.
+
+ Damit im Testlauf keine Dialoge stehenbleiben, gibt es in
+ modWochenplan eine Meldungsschleuse: SetQuiet True schaltet alle
+ Meldungen stumm, Rueckfragen werden mit OK beantwortet, und der letzte
+ Meldungstext ist ueber LastInfo bzw. LastError abrufbar. Alle Module
+ melden ausschliesslich ueber Info() und Frage() - kein direktes MsgBox
+ mehr.
+
+
+----------------------------------------------------------------------
+ FERIEN / EINGEPLANTE FEHLZEITEN
+----------------------------------------------------------------------
+ KENNZEICHEN DER ZWISCHENZEILEN: In Spalte N steht bei jeder grauen
+ Zwischenzeile ein "F" (Konstante MARK_TAG). Frueher stand dort
+ "FERIEN" - das passte nicht mehr, seit die Tabelle auch
+ Fortbildungen und Praktika aufnimmt. Geschrieben wird es in der
+ Hintergrundfarbe der Zelle, ist also nicht zu sehen; gebraucht wird
+ es nur von IsFerienRow.
+ MARK_TAG_ALT ("FERIEN") bleibt als Zweitform bestehen: aeltere
+ Mappen wuerden ihre Ferienzeilen sonst als normale Planzeilen
+ behandeln, und der Formelneuaufbau schriebe in die verbundenen
+ Zellen - Laufzeitfehler 1004. RebuildAll frischt beim Lauf alle
+ Kennzeichen auf, "Einrichtung / Reparatur" stellt eine alte Mappe
+ also von selbst um.
+
+
+ Die Spalte K der Ferientabelle heisst "Ferien / eingeplante
+ Fehlzeiten" - dort gehoert alles hinein, was Unterricht kostet:
+ Ferien, Fortbildungen, Praktika, Schullandheim.
+
+ Die ZEITRAEUME kommen aus dem eigenen Kalender: "Ferien aus Kalender
+ vorschlagen" liest die Luecken zwischen den abgehakten Schulwochen.
+ Die NAMEN sind im Makro hinterlegt (modKalender.FerienName), nicht
+ aus dem Internet - zugeordnet wird nach Monat:
+
+   10, 11    Herbstferien
+   12,  1    Weihnachtsferien
+    2        Faschingsferien     (in Bayern nicht "Fruehjahrsferien")
+    3,  4    Osterferien
+    5,  6    Pfingstferien
+    7, 8, 9  Sommerferien
+   sonst     unterrichtsfrei
+
+ Der Vorschlag ist nur eine Beschriftung und jederzeit ueberschreibbar.
+
+
+----------------------------------------------------------------------
+ FARBEN
+----------------------------------------------------------------------
+ Alle Blautoene liegen auf dem Farbton des Schullogos (#1468AB,
+ 207 Grad). Der Tabellenkopf hatte vorher denselben Farbton, war aber
+ deutlich blasser - neben dem kraeftigen Logo wirkte das muffig.
+
+   Tabellenkopf dunkel   #1F4E78  ->  #16507E
+   Tabellenkopf hell     #9096B6  ->  #5F8EB4   (war als einziger
+                                                 Ton bei 231 Grad)
+   Abschnittsbalken      #55647D  ->  #4E697E
+   helle Beschriftung    #E2E8F0  ->  #E1E9EF
+
+ In der Mappe sind diese Werte direkt in styles.xml gesetzt. Fuer
+ alles, was VBA neu aufbaut, stehen sie in modWochenplan als
+ FUNKTIONEN FARBE_KOPF, FARBE_KOPF_HELL, FARBE_BALKEN, FARBE_HELL,
+ FARBE_TEXT, FARBE_LEISE.
+ Bewusst Funktionen und keine Konstanten: eine Const kann RGB() nicht
+ aufrufen, und eine von Hand ausgerechnete Farbzahl war schon zweimal
+ falsch, ohne dass man es gesehen haette.
+
+
+----------------------------------------------------------------------
+ FOKUS NACH DEN SCHALTFLAECHEN
+----------------------------------------------------------------------
+ Nach jeder Aktion soll der Anwender dort stehen, wo die
+ Schaltflaeche sitzt. FastOff merkt sich dafuer das Ausgangsblatt -
+ das reicht aber nicht: "Blattschutz aufheben" laeuft ganz ohne
+ FastOn/FastOff. Jede Schaltflaeche setzt den Fokus deshalb
+ ausdruecklich mit GotoSheet:
+
+   Steuerung        alle Schaltflaechen  ->  Steuerung
+                    AUSNAHME: "Unterrichtswochen und Ferien erzeugen"
+                    springt bewusst in den Wochenplan, da will man
+                    das Ergebnis sehen
+   Einstellungen    beide Schaltflaechen ->  Einstellungen
+
+ Abschnitt 9 des Selbsttests prueft das. Entscheidend dabei: vor
+ jedem Aufruf wird BEWUSST ein anderes Blatt aktiviert. Startet der
+ Test auf dem Blatt, auf dem er am Ende sein soll, besteht er immer -
+ genau daran ist der Sprung auf die Anleitung zweimal
+ vorbeigelaufen.
+
+
+----------------------------------------------------------------------
+ ZEICHENSATZ
+----------------------------------------------------------------------
+ Die .bas- und .txt-Dateien MUESSEN als Windows-1252 (ANSI) auf der
+ Platte liegen. Der VBA-Editor liest beim Import ANSI; eine
+ UTF-8-Datei kommt als Hieroglyphen an - aus einem
+ Umlaut werden dann zwei fremde Zeichen.
+ Pruefen laesst sich das im Editor: stehen in den MsgBox-Texten
+ saubere Umlaute, passt es.

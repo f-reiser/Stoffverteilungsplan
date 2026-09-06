@@ -1,0 +1,31 @@
+name: Pruefung
+
+# Laeuft bei jedem Push und bei jedem Pull Request. Ruft genau dasselbe
+# Skript auf, das auch lokal laeuft (Makros/pruefe_alles.py) - damit
+# koennen Arbeitsplatz und Pipeline nicht auseinanderlaufen.
+#
+# Was hier NICHT laufen kann:
+#   Ebene 4/5  Selbsttest und Mutationstest brauchen echtes Excel.
+#   Ebene 9    Fremde Gegenlese braucht ein Sprachmodell.
+# Beides steht in Doku/Testebenen.md.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pruefung:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Abhaengigkeiten
+        run: python -m pip install --upgrade pip openpyxl
+
+      - name: Alle automatisierbaren Pruefebenen
+        run: python Makros/pruefe_alles.py

@@ -1,0 +1,113 @@
+======================================================================
+ Stoffverteilungsplan - Makros mit einem Klick nachziehen
+======================================================================
+
+DAS PROBLEM
+ Bisher musste jede Mappe einzeln im VBA-Editor geoeffnet und jedes
+ Modul von Hand importiert werden. Bei einer Handvoll eigener Dateien
+ ist das laestig, Kolleginnen und Kollegen kann man es nicht zumuten.
+
+DIE LOESUNG
+ In einer .xlsm liegt der gesamte VBA-Code als EIN Baustein in der
+ Datei (intern: xl/vbaProject.bin). Wird dieser Baustein ersetzt, sind
+ auf einen Schlag alle Module aktuell - auch der Code hinter
+ "Tabelle1 (Wochenplan)" und "DieseArbeitsmappe". Die Daten der Mappe
+ bleiben dabei voellig unberuehrt.
+
+ Genau das macht Makros_verteilen.cmd: es nimmt den Baustein aus einer
+ Vorlage-Mappe und setzt ihn in alle anderen .xlsm des Ordners.
+
+ Wichtig: Es braucht dafuer WEDER Excel NOCH die Einstellung
+ "Zugriff auf das VBA-Projektobjektmodell vertrauen". Die haetten
+ andere Wege verlangt - und diese Einstellung ist an vielen Schulen
+ gesperrt.
+
+
+----------------------------------------------------------------------
+ ABLAUF BEI EINER NEUEN FASSUNG
+----------------------------------------------------------------------
+ EINMAL pro Fassung, von dir:
+   1. Stoffverteilungsplan_Template.xlsm oeffnen.
+   2. Alt+F11, die geaenderten Module importieren (wie bisher).
+      modKonfig NICHT - dort steht das Kennwort.
+   3. Speichern, schliessen.
+   Diese Mappe ist ab jetzt die Vorlage.
+
+ DANN, fuer beliebig viele Mappen:
+   4. Makros_verteilen.cmd doppelklicken.
+      Das Skript zeigt, welche Dateien es anfassen wird, und fragt
+      einmal nach.
+   5. In jeder aktualisierten Mappe einmal:
+      Blatt "Steuerung"  ->  "Einrichtung / Reparatur"
+
+ Fuer Kolleginnen und Kollegen bleiben nur die Schritte 4 und 5 -
+ Doppelklick und ein Knopf in Excel.
+
+
+----------------------------------------------------------------------
+ WAS DAS SKRIPT TUT UND WAS NICHT
+----------------------------------------------------------------------
+ Es nimmt automatisch die Datei mit "Template" im Namen als Vorlage.
+ Gibt es mehrere, fragt es nach (-Vorlage <Pfad>).
+
+ Es fasst nur .xlsm-Dateien im selben Ordner an, und auch die nur,
+ wenn sie
+   - nicht gerade in Excel geoeffnet sind,
+   - selbst ein VBA-Projekt enthalten,
+   - die Blaetter Wochenplan, Lernbereiche und Einstellungen haben.
+ Alles andere wird mit Begruendung uebersprungen.
+
+ Von jeder Datei entsteht vorher eine Sicherungskopie im Unterordner
+ "Sicherung". Der Ordner wird beim naechsten Lauf nicht mit
+ angefasst - die Kopien bleiben also Kopien.
+
+ Das Skript aendert NICHTS an den Daten: Wochenplan, Lernbereiche und
+ Einstellungen bleiben Byte fuer Byte, wie sie waren. Ausgetauscht
+ wird ausschliesslich der Programmteil.
+
+ Es kann KEINE Mappe nachruesten, in der noch gar keine Makros
+ stecken. Dafuer nimmt man das Template und traegt die Daten dort
+ ein.
+
+
+----------------------------------------------------------------------
+ SCHALTER
+----------------------------------------------------------------------
+ In PowerShell aufrufbar:
+
+   .\Makros_verteilen.ps1 -Probelauf
+        zeigt nur, was passieren wuerde
+
+   .\Makros_verteilen.ps1 -Ja
+        laeuft ohne Rueckfrage durch
+
+   .\Makros_verteilen.ps1 -Vorlage "C:\...\Meine_Vorlage.xlsm"
+        andere Vorlagedatei
+
+   .\Makros_verteilen.ps1 -Ordner "C:\...\Plaene"
+        anderer Zielordner
+
+ Beim ersten Mal lohnt sich -Probelauf.
+
+
+----------------------------------------------------------------------
+ WENN EXCEL DIE MAKROS BLOCKIERT
+----------------------------------------------------------------------
+ Kommt eine Datei per Mail oder Download, setzt Windows eine Sperre
+ ("Mark of the Web"), und Excel deaktiviert alle Makros - erkennbar an
+ einem roten Balken. Das hat nichts mit dem Skript zu tun.
+
+ Abhilfe je Datei: Rechtsklick -> Eigenschaften -> unten "Zulassen"
+ ankreuzen -> OK. Danach Excel neu oeffnen.
+
+ Besser: die Dateien ueber ein Netzlaufwerk oder SharePoint weitergeben
+ statt als Mailanhang.
+
+
+----------------------------------------------------------------------
+ VORAUSSETZUNGEN
+----------------------------------------------------------------------
+ Windows 10 oder 11. Das mitgelieferte PowerShell reicht, es muss
+ nichts nachinstalliert werden. Die .cmd startet PowerShell mit
+ "-ExecutionPolicy Bypass" nur fuer diesen einen Lauf - an den
+ Einstellungen des Rechners aendert sich dadurch nichts.
