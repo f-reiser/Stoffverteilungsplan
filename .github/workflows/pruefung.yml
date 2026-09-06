@@ -18,9 +18,13 @@ jobs:
   pruefung:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # Beide auf Node 24. Mit checkout@v4 / setup-python@v5 haengte GitHub
+      # jedem gruenen Lauf eine Deprecation-Warnung an - und eine Warnung,
+      # die immer da steht, liest nach kurzer Zeit niemand mehr. Dann faellt
+      # auch die echte nicht mehr auf.
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
