@@ -31,6 +31,16 @@ jobs:
       issues: write
       id-token: write
       actions: read
+    env:
+      #  Einmal, damit der Pfad nicht in drei Schritten getrennt altert.
+      SKRIPT: .skills/plugins/reiser-workflow/skills/github-issue-workflow/scripts/verbrauch.py
+      #  Was die Automatik pro rollendem Fenster ausgeben darf. Als
+      #  Repository-Variablen, damit der Nutzer nachziehen kann, ohne den
+      #  Workflow anzufassen - die ersten Wochen sind Kalibrierung.
+      BUDGET_KURZ_USD: ${{ vars.BUDGET_KURZ_USD }}
+      BUDGET_LANG_USD: ${{ vars.BUDGET_LANG_USD }}
+      BUDGET_KURZ_TOKEN: ${{ vars.BUDGET_KURZ_TOKEN || '400000' }}
+      BUDGET_LANG_TOKEN: ${{ vars.BUDGET_LANG_TOKEN || '4000000' }}
     steps:
       #  fetch-depth: 0, weil die Branch-Strategie ein Rebase auf main
       #  verlangt - mit einem flachen Klon fehlt dafuer die Historie.
@@ -38,7 +48,31 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: anthropics/claude-code-action@v1
+      #  Das Kassenbuch-Skript liegt im Skills-Repository, damit es nicht in
+      #  jedem Projekt getrennt altert. Fester Tag: was ausgefuehrt wird,
+      #  gehoert festgenagelt, sonst aendert ein fremder Push den Lauf.
+      - uses: actions/checkout@v6
+        with:
+          repository: f-reiser/claude-skills
+          ref: reiser-workflow--v0.3.0
+          path: .skills
+
+      #  Der erste Lauf findet kein Kassenbuch. Das ist kein Fehler - dann
+      #  gilt die Regel aus dem Skill: ein Vorgang, und im Bericht erwaehnen.
+      - name: Kassenbuch holen
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          id=$(gh run list --workflow einarbeiten.yml --status completed \
+                 --limit 1 --json databaseId --jq '.[0].databaseId')
+          [ -n "$id" ] && gh run download "$id" --name verbrauch --dir .
+
+      - name: Budget melden
+        run: python "$SKRIPT" bericht | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - id: claude
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: "https://github.com/f-reiser/claude-skills.git"
@@ -71,14 +105,17 @@ jobs:
             gesetzte Prioritaet gilt Medium. Prioritaet Low nur zwischen 0:00 und
             4:00 Uhr Europe/Berlin, sonst ueberspringen.
 
-            EIN Vorgang pro Durchgang.
+            Wie viele Vorgaenge in diesen Durchgang passen, entscheidet das
+            Budget - siehe unten. Nicht eine feste Zahl.
 
             ## 3. Abarbeiten
 
             Folge dem Skill /github-issue-workflow. Fuer Branch, Rebase,
-            Merge-Konflikte und Pull Request gilt git-branch-strategie, fuer jeden
-            geschriebenen Text erklaeren-mit-mass. Die Projektregeln in CLAUDE.md
-            haben Vorrang - insbesondere die cp1252-Regel fuer Makros/*.bas.
+            Merge-Konflikte und Pull Request gilt git-branch-strategie, fuer jede
+            Aenderung am Code test-driven-development, vor dem Pull Request
+            fremde-gegenlese, fuer jeden geschriebenen Text erklaeren-mit-mass.
+            Die Projektregeln in CLAUDE.md haben Vorrang - insbesondere die
+            cp1252-Regel fuer Makros/*.bas.
 
             Bei einem Pull Request mit dem Label wird auf dessen BESTEHENDEM
             Branch gearbeitet, nicht auf einem neuen.
@@ -87,11 +124,24 @@ jobs:
             Regeln nicht aus dem Gedaechtnis nach - pruefe wirklich nach, ob sie
             geladen sind, statt es anzunehmen.
 
-            ## Abweichungen von der lokalen Ausfuehrung
+            ## Budget
 
-            Es gibt hier keine Verbrauchsdatei der Desktop-App, also keine
-            Limit-Pruefung; die Prioritaets-Schwellen aus dem Skill entfallen.
-            Nur die Nachtregel fuer Low gilt.
+            Der Schritt "Budget melden" hat vor dir bereits `verbrauch.py bericht`
+            ausgefuehrt; das Ergebnis steht in der Job-Zusammenfassung. Fuehre es
+            selbst noch einmal aus, wenn du die Zahlen brauchst:
+
+                python "$SKRIPT" bericht
+
+            Danach gilt der Abschnitt "Unbeaufsichtigte Durchgaenge" aus
+            /github-issue-workflow: Schwelle je Prioritaet, und nach jedem
+            fertigen Vorgang neu rechnen, ob der naechste noch hineinpasst.
+            Meldet der Bericht "kassenbuch=fehlt", bleibt es bei EINEM Vorgang.
+
+            Schreibe am Ende die Zahl der abgearbeiteten Vorgaenge nach
+            vorgaenge.txt (eine Zahl, sonst nichts) - daraus entsteht der
+            Schnitt fuer den naechsten Durchgang. Auch bei null.
+
+            ## Abweichungen von der lokalen Ausfuehrung
 
             Der lokale Schluesselbund fehlt: `gh auth token --user ...` gibt es
             nicht. Nimm die Identitaet, die die Umgebung bereitstellt, und nenne
@@ -116,8 +166,23 @@ jobs:
 
             ## Rueckmeldung
 
-            Kurz. Immer: unter welcher Identitaet gearbeitet wurde und ob die
-            Skills geladen waren. Dann je nach Ausgang: nichts gefunden /
-            abgearbeitet (Nummer, Titel, Pull Request, Testergebnis) / Rueckfrage
-            oder Entscheidung gesetzt (Nummer und woran es haengt) / Issue ohne
-            eindeutigen Typ gesehen (Nummern).
+            Kurz. Immer: unter welcher Identitaet gearbeitet wurde, ob die Skills
+            geladen waren und wie das Budget stand. Dann je nach Ausgang: nichts
+            gefunden / abgearbeitet (Nummer, Titel, Pull Request, Testergebnis) /
+            Rueckfrage oder Entscheidung gesetzt (Nummer und woran es haengt) /
+            Issue ohne eindeutigen Typ gesehen (Nummern). Wurde wegen des Budgets
+            zurueckgestellt: welcher Vorgang und bei welchem Stand.
+
+      #  "always", weil auch ein gescheiterter Lauf verbraucht hat. Ihn
+      #  wegzulassen hiesse, gerade die teuren Laeufe als kostenlos zu
+      #  verbuchen.
+      - name: Kassenbuch fortschreiben
+        if: always()
+        run: python "$SKRIPT" fortschreiben "${{ steps.claude.outputs.execution_file }}"
+
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: verbrauch
+          path: verbrauch.json
+          retention-days: 8
