@@ -45,10 +45,11 @@ jobs:
       #  3 Mio Token (Groesse ohne Cache-Lesen). Davon bekommt die
       #  Automatik etwa ein Siebtel bzw. ein Fuenftel.
       #
-      #  Die Messung stammt zu 96 % aus Opus-Sitzungen, dieser Lauf nutzt
-      #  Sonnet. Sonnet zehrt langsamer am Limit, die Werte sind also eher
-      #  zu streng als zu grosszuegig - die richtige Richtung fuer einen
-      #  unbeaufsichtigten Lauf.
+      #  Die Messung stammt zu 96 % aus Opus-Sitzungen, und dieser Lauf
+      #  nutzt ebenfalls Opus - die Groessenordnung passt also. Der
+      #  Unterschied bleibt, dass hier niemand danebensitzt: Deshalb
+      #  bekommt die Automatik nur einen Bruchteil, nicht das ganze
+      #  Fenster.
       BUDGET_KURZ_USD: ${{ vars.BUDGET_KURZ_USD }}
       BUDGET_LANG_USD: ${{ vars.BUDGET_LANG_USD }}
       BUDGET_KURZ_TOKEN: ${{ vars.BUDGET_KURZ_TOKEN || '600000' }}
@@ -80,33 +81,63 @@ jobs:
                  --limit 1 --json databaseId --jq '.[0].databaseId')
           [ -n "$id" ] && gh run download "$id" --name verbrauch --dir .
 
+      #  Die meisten Durchgaenge finden nichts. Diese Frage kostet einen
+      #  API-Aufruf; sie im Modell zu stellen kostet einen ganzen Lauf mit
+      #  kaltem Cache. Bei 42 Laeufen die Woche ist das der groesste
+      #  Einzelposten, den man streichen kann, ohne etwas aufzugeben.
+      - id: vorpruefung
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          #  Gibt es das Label im Repository (noch) nicht, antwortet gh mit
+          #  einem Fehler statt mit einer leeren Liste - und der Job waere
+          #  tot. Ein fehlendes Label heisst hier aber schlicht: nichts zu
+          #  tun. Deshalb auf 0 zurueckfallen, nicht abbrechen.
+          zaehle() {
+            gh "$1" list --label Einarbeiten --state open --json number \
+              --jq 'length' 2>/dev/null || echo 0
+          }
+          i=$(zaehle issue)
+          p=$(zaehle pr)
+          echo "Offen mit Label Einarbeiten: $i Issues, $p Pull Requests" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "offen=$((i + p))" >> "$GITHUB_OUTPUT"
+
       - name: Budget melden
+        if: steps.vorpruefung.outputs.offen != '0'
         run: python "$SKRIPT" bericht | tee -a "$GITHUB_STEP_SUMMARY"
 
       - id: claude
+        if: steps.vorpruefung.outputs.offen != '0'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: "https://github.com/f-reiser/claude-skills.git"
           plugins: "reiser-workflow@reiser-skills"
+          #  "opus" ist der Alias auf das JEWEILS neueste Opus-Modell, nicht
+          #  auf eine feste Fassung. Das ist Absicht und setzt die Regel des
+          #  Nutzers um: Beim Codieren immer das beste Modell, das sein Abo
+          #  ohne Zusatzguthaben hergibt - ohne dass jemand daran denken
+          #  muss. Kommt einmal ein besseres Modell ausserhalb der
+          #  Opus-Reihe, ist HIER die Stelle, die nachgezogen wird.
           claude_args: |
-            --model claude-sonnet-5
+            --model opus
+            --effort high
             --max-turns 80
           prompt: |
-            Automatischer Durchgang: einen Vorgang mit dem Label "Einarbeiten"
-            abarbeiten - Issue oder Pull Request - in diesem Repository.
+            Automatischer Durchgang: Vorgaenge mit dem Label "Einarbeiten"
+            abarbeiten - Issues wie Pull Requests - in diesem Repository.
 
-            Die meisten Durchgaenge finden nichts zu tun. Das ist der Normalfall,
-            kein Fehler: dann eine Zeile melden und beenden.
+            Ein Schritt davor hat bereits geprueft, dass mindestens einer
+            offen ist; du wirst gar nicht erst gestartet, wenn nichts anliegt.
 
-            ## 1. Gibt es etwas zu tun?
-
-            Das Label gilt fuer Issues wie fuer Pull Requests:
+            ## 1. Was liegt an?
 
                 gh issue list --label Einarbeiten --state open --json number,title,updatedAt
                 gh pr    list --label Einarbeiten --state open --json number,title,updatedAt
 
-            Findest du nichts: beenden.
+            Findest du wider Erwarten nichts - jemand hat das Label in den
+            letzten Sekunden entfernt -, beenden und das melden.
 
             ## 2. Einen auswaehlen
 
@@ -178,16 +209,23 @@ jobs:
             Issue ohne eindeutigen Typ gesehen (Nummern). Wurde wegen des Budgets
             zurueckgestellt: welcher Vorgang und bei welchem Stand.
 
-      #  "always", weil auch ein gescheiterter Lauf verbraucht hat. Ihn
+      #  "always", weil auch ein GESCHEITERTER Lauf verbraucht hat. Ihn
       #  wegzulassen hiesse, gerade die teuren Laeufe als kostenlos zu
-      #  verbuchen.
+      #  verbuchen. Ein UEBERSPRUNGENER Lauf hat dagegen wirklich nichts
+      #  gekostet und bekommt deshalb keinen Eintrag - sonst zoege er den
+      #  Schnitt je Vorgang nach unten und die Schaetzung wuerde zu mutig.
       - name: Kassenbuch fortschreiben
-        if: always()
+        if: always() && steps.vorpruefung.outputs.offen != '0'
         run: python "$SKRIPT" fortschreiben "${{ steps.claude.outputs.execution_file }}"
 
+      #  Auch nach einem uebersprungenen Lauf hochladen, unveraendert: Der
+      #  naechste Durchgang holt sich das Artefakt des letzten Laufs. Ohne
+      #  dieses Weiterreichen risse die Kette beim ersten Leerlauf ab und
+      #  das Kassenbuch finge wieder bei null an.
       - uses: actions/upload-artifact@v5
         if: always()
         with:
           name: verbrauch
           path: verbrauch.json
           retention-days: 8
+          if-no-files-found: ignore
