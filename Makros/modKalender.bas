@@ -509,11 +509,20 @@ Private Sub KopfblockAnlegen(ByVal st As Worksheet)
     ' liegen inzwischen als Bilder daneben - der Dateiname verwirrt nur.
     st.Cells(sr, sc).Value = LBL_SCHULLISTE
 
+    '  Die Schulnamen stehen in modKonfig und nicht hier: sie sind
+    '  standortabhaengig, und modKonfig ist das einzige Modul, das ein
+    '  Update nie ueberschreibt. Wer die Mappe uebernimmt, traegt seine
+    '  Schulen dort ein - die Reihenfolge bestimmt die Logo-Zuordnung.
     If Len(Trim$(CStr(st.Cells(sr + 1, sc).Value))) = 0 Then
-        st.Cells(sr + 1, sc).Value = "St.-Bonaventura-Gymnasium Dillingen"
-        st.Cells(sr + 2, sc).Value = "St.-Bonaventura-FOS Dillingen"
-        modWochenplan.RefreshLayout True
-        sr = modWochenplan.SchulRow()
+        Dim schulen As Variant, si As Long
+        If Len(Trim$(modKonfig.SCHULLISTE)) > 0 Then
+            schulen = Split(modKonfig.SCHULLISTE, ";")
+            For si = 0 To UBound(schulen)
+                st.Cells(sr + 1 + si, sc).Value = Trim$(CStr(schulen(si)))
+            Next si
+            modWochenplan.RefreshLayout True
+            sr = modWochenplan.SchulRow()
+        End If
     End If
 
     ' --- Aussehen -----------------------------------------------------

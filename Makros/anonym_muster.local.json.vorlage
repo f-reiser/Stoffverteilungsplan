@@ -1,0 +1,12 @@
+[
+  {
+    "name": "Klarname der Lehrkraft",
+    "muster": "Vorname\\s+Nachname",
+    "beispiel": "Vorname Nachname"
+  },
+  {
+    "name": "Schulname",
+    "muster": "Name-der-Schule",
+    "beispiel": "Name-der-Schule Musterstadt"
+  }
+]

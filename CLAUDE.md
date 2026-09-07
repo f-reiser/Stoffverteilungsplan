@@ -25,7 +25,11 @@ Es wirft die x14-Erweiterungen weg und beschädigt `xl/vbaProject.bin`. Lesen is
 unproblematisch. Schreiben nur als XML-Chirurgie im entpackten Zip.
 
 **4. `modKonfig.bas` wird nie ausgeliefert und nie überschrieben.**
-Dort steht das Blattschutz-Kennwort des Nutzers.
+Dort steht das Blattschutz-Kennwort des Nutzers **und seine Schulliste**
+(`SCHULLISTE`, semikolongetrennt; die Reihenfolge bestimmt die Logo-Zuordnung).
+Das Repository ist öffentlich — alles Standortabhängige gehört in dieses Modul oder in
+`anonym_muster.local.json`, beide in `.gitignore`. Wie ein Nutzer seine Schule einträgt:
+`Doku/Eigene_Schule_einrichten.md`.
 
 **5. Testgetrieben, immer.** Siehe unten.
 
@@ -76,7 +80,9 @@ Stoffverteilungsplan/
 │  ├─ pruefe_datei.py         Ebenen 2+8: Abnahme fertiger .xlsm, mit --selbsttest
 │  ├─ pruefe_formeln.py       Ebene 6: Formelkonsistenz, mit --selbsttest
 │  ├─ pruefe_anonym.py        Ebene A: keine Produktivdaten in Vorlage/, mit --selbsttest
+│  ├─ anonym_muster.local.json  eigene Namen als Suchmuster — in .gitignore
 │  ├─ anonymisiere.py         erzeugt Vorlage/ aus einer produktiven Mappe
+│  ├─ logos_einsetzen.py      tauscht die eingebetteten Logos einer Mappe
 │  └─ ci_ausgabe.py           Ausgabeschicht für GitHub Actions, mit --selbsttest
 ├─ Vorlage/                   die einzigen .xlsm im Repo — ERZEUGT, nicht gepflegt
 ├─ Bilder/                    Schullogos

@@ -28,6 +28,8 @@ AUFRUF
 """
 import argparse
 import glob
+import io
+import json
 import os
 import re
 import shutil
@@ -43,18 +45,41 @@ import ci_ausgabe
 #  Beispiel in eine saubere Mappe ein. Ohne diesen Nachweis waere von
 #  keiner der Regeln gesagt, dass sie ueberhaupt anschlagen kann - genau
 #  der Fehler, den dieses Projekt schon dreimal hatte.
+#
+#  Hier stehen nur die ALLGEMEINEN Spuren. Was den Betreiber oder seine
+#  Schule benennt, gehoert nicht in ein oeffentliches Repository und
+#  steht in MUSTER_LOKAL (siehe unten) - sonst veroeffentlicht
+#  ausgerechnet die Pruefung das, was sie schuetzen soll.
 SPUREN = [
-    ("Klarname der Lehrkraft", r"Florian\s+Reiser", "Florian Reiser"),
-    ("Schulname", r"St\.-?Bonaventura", "St.-Bonaventura-Gymnasium Dillingen"),
     ("Seitenverweise ins Schulbuch", r"LS:\s*Seite\s*\d+", "LS: Seite 12 - 15"),
     ("Schulaufgaben-Planung", r"\d\.\s*(?:Schulaufgabe|kasL)", "1. Schulaufgabe"),
     ("eigene Kompetenzformulierung",
      r"Baumdiagramm|Monte-Carlo|Pfadregeln", "Pfadregeln"),
     ("eigene Notiz", r"Zweifelsfall ans Jahresende",
      "Wird im Zweifelsfall ans Jahresende geschoben"),
-    ("Windows-Benutzerpfad", r"C:\\Users\\[A-Za-z0-9._-]+", r"C:\Users\flori"),
+    ("Windows-Benutzerpfad", r"C:\\Users\\[A-Za-z0-9._-]+", r"C:\Users\beispiel"),
     ("OneDrive-Pfad", r"OneDrive", "OneDrive - Irgendeine Schule"),
+    ("E-Mail-Adresse", r"[\w.+-]+@[\w-]+\.[\w.]+", "vorname.name@schule.de"),
 ]
+
+#  Standortabhaengige Muster: Klarnamen, Schulnamen, alles Uebrige, was
+#  nur dieser Betreiber kennt. Die Datei ist in .gitignore; daneben liegt
+#  anonym_muster.local.json.vorlage als Beispiel.
+MUSTER_LOKAL = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "anonym_muster.local.json")
+
+
+def _lokale_muster():
+    """Liest die standortabhaengigen Muster; leere Liste, wenn keine da."""
+    if not os.path.exists(MUSTER_LOKAL):
+        return []
+    with io.open(MUSTER_LOKAL, encoding="utf-8") as f:
+        return [(e["name"], e["muster"], e["beispiel"]) for e in json.load(f)]
+
+
+def alle_spuren():
+    """Allgemeine und standortabhaengige Muster zusammen."""
+    return SPUREN + _lokale_muster()
 
 
 def pruefe(pfad):
@@ -69,7 +94,7 @@ def pruefe(pfad):
                      and "vbaProject" not in n)
     z.close()
     fund = []
-    for name, muster, _ in SPUREN:
+    for name, muster, _ in alle_spuren():
         treffer = re.findall(muster, text, re.I)
         if treffer:
             fund.append((name, len(treffer), str(treffer[0])[:45]))
@@ -107,11 +132,16 @@ def selbsttest(pfade):
     quelle = sauber[0]
     print("Ausgangsbasis: %s (sauber)\n" % os.path.basename(quelle))
 
+    spuren = alle_spuren()
+    if not _lokale_muster():
+        print("Hinweis: keine standortabhaengigen Muster geladen (%s fehlt).\n"
+              "         Klarnamen und Schulnamen werden damit NICHT geprueft."
+              % os.path.basename(MUSTER_LOKAL))
     arbeit = tempfile.mkdtemp(prefix="pruefe_anonym_")
     ziel = os.path.join(arbeit, "mutiert.xlsm")
     offen = 0
     print("Mutationen (jede MUSS anschlagen):")
-    for name, _, beispiel in SPUREN:
+    for name, _, beispiel in spuren:
         _mit_spur(quelle, ziel, beispiel)
         gemeldet = {n for n, _, _ in pruefe(ziel)}
         if name in gemeldet:
@@ -121,7 +151,7 @@ def selbsttest(pfade):
                   % (name, sorted(gemeldet) or "nichts"))
             offen += 1
     shutil.rmtree(arbeit, ignore_errors=True)
-    print("\n%d von %d Mutationen erkannt." % (len(SPUREN) - offen, len(SPUREN)))
+    print("\n%d von %d Mutationen erkannt." % (len(spuren) - offen, len(spuren)))
     return 1 if offen else 0
 
 
