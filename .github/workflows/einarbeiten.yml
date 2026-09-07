@@ -37,10 +37,22 @@ jobs:
       #  Was die Automatik pro rollendem Fenster ausgeben darf. Als
       #  Repository-Variablen, damit der Nutzer nachziehen kann, ohne den
       #  Workflow anzufassen - die ersten Wochen sind Kalibrierung.
+      #
+      #  Die Vorgabewerte sind gemessen, nicht geraten: Aus dem Verhaeltnis
+      #  von verbrauchten Token zu den Prozentspruengen in der
+      #  Verbrauchsdatei der Desktop-App ergab sich fuer dieses Konto ein
+      #  Wochenfenster von rund 17 Mio und ein 5-Stunden-Fenster von rund
+      #  3 Mio Token (Groesse ohne Cache-Lesen). Davon bekommt die
+      #  Automatik etwa ein Siebtel bzw. ein Fuenftel.
+      #
+      #  Die Messung stammt zu 96 % aus Opus-Sitzungen, dieser Lauf nutzt
+      #  Sonnet. Sonnet zehrt langsamer am Limit, die Werte sind also eher
+      #  zu streng als zu grosszuegig - die richtige Richtung fuer einen
+      #  unbeaufsichtigten Lauf.
       BUDGET_KURZ_USD: ${{ vars.BUDGET_KURZ_USD }}
       BUDGET_LANG_USD: ${{ vars.BUDGET_LANG_USD }}
-      BUDGET_KURZ_TOKEN: ${{ vars.BUDGET_KURZ_TOKEN || '400000' }}
-      BUDGET_LANG_TOKEN: ${{ vars.BUDGET_LANG_TOKEN || '4000000' }}
+      BUDGET_KURZ_TOKEN: ${{ vars.BUDGET_KURZ_TOKEN || '600000' }}
+      BUDGET_LANG_TOKEN: ${{ vars.BUDGET_LANG_TOKEN || '2500000' }}
     steps:
       #  fetch-depth: 0, weil die Branch-Strategie ein Rebase auf main
       #  verlangt - mit einem flachen Klon fehlt dafuer die Historie.
