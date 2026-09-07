@@ -98,12 +98,7 @@ jobs:
 
             ## 2. Einen auswaehlen
 
-            Reihenfolge: Abhaengigkeit vor Prioritaet vor Alter. Zuerst etwas, das
-            von nichts Offenem blockiert wird; dann die hoehere Prioritaet
-            (Urgent, High, Medium, Low); bei Gleichstand das am laengsten
-            unveraenderte. "relates to" beeinflusst die Reihenfolge nicht. Ohne
-            gesetzte Prioritaet gilt Medium. Prioritaet Low nur zwischen 0:00 und
-            4:00 Uhr Europe/Berlin, sonst ueberspringen.
+            Nach /github-issue-workflow, Abschnitt "Welches Issue zuerst".
 
             Wie viele Vorgaenge in diesen Durchgang passen, entscheidet das
             Budget - siehe unten. Nicht eine feste Zahl.
@@ -126,16 +121,14 @@ jobs:
 
             ## Budget
 
-            Der Schritt "Budget melden" hat vor dir bereits `verbrauch.py bericht`
-            ausgefuehrt; das Ergebnis steht in der Job-Zusammenfassung. Fuehre es
-            selbst noch einmal aus, wenn du die Zahlen brauchst:
+            Vor JEDEM Vorgang, auch vor dem zweiten und dritten:
 
-                python "$SKRIPT" bericht
+                python "$SKRIPT" entscheidung --prioritaet <Prioritaet>
 
-            Danach gilt der Abschnitt "Unbeaufsichtigte Durchgaenge" aus
-            /github-issue-workflow: Schwelle je Prioritaet, und nach jedem
-            fertigen Vorgang neu rechnen, ob der naechste noch hineinpasst.
-            Meldet der Bericht "kassenbuch=fehlt", bleibt es bei EINEM Vorgang.
+            Bei "entscheidung=nein" nichts anfangen und den Grund in die
+            Rueckmeldung uebernehmen. Die Schwellen stehen im Skript; rechne
+            sie nicht selbst nach. Was das Skript nicht wissen kann, steht in
+            /github-issue-workflow, Abschnitt "Unbeaufsichtigte Durchgaenge".
 
             Schreibe am Ende die Zahl der abgearbeiteten Vorgaenge nach
             vorgaenge.txt (eine Zahl, sonst nichts) - daraus entsteht der
