@@ -61,10 +61,14 @@ und darunter, was **nicht** geprüft werden konnte.
 | 8 | Strukturprüfung der Datei (Zip/XML) | in `pruefe_datei.py` enthalten | 7 Regeln | ja¹ |
 | 9 | Fremde Gegenlese durch unabhängige Agenten | `Doku/Ebene9_Gegenlese.md` | Ablauf, kein Test | **nein** — braucht ein Modell |
 | W | Ausgabeschicht für die CI | `ci_ausgabe.py --selbsttest` | 16 Prüfungen, 13 Mutationen | ja |
-| A | keine Produktivdaten in `Vorlage/` | `pruefe_anonym.py ../Vorlage/*.xlsm` | 8 Spuren | ja |
-| AM | Mutationstest über Ebene A | `pruefe_anonym.py --selbsttest` | 8 Mutationen | ja |
+| A | keine Produktivdaten in `Vorlage/` | `pruefe_anonym.py ../Vorlage/*.xlsm` | allgemeine + standortabhängige Spuren | teilweise¹ |
+| AM | Mutationstest über Ebene A | `pruefe_anonym.py --selbsttest` | je Spur eine Mutation | teilweise¹ |
 
 ¹ nur, wenn eine `.xlsm` im Repo liegt — siehe „Die Referenzmappe".
+² Ebene A läuft in der CI, prüft dort aber nur die **allgemeinen** Spuren: Klarnamen und
+Schulnamen stehen in `anonym_muster.local.json`, das `.gitignore` ausschließt und das in
+der CI deshalb nie existiert. Vor dem Push ist der lokale Lauf die eigentliche Prüfung —
+fehlt die Datei dort, bricht sie mit einem Fehler ab.
 
 Dazu die Abnahme des Nutzers in echtem Excel. Die hat bisher am meisten gefunden und ist
 durch nichts hiervon zu ersetzen.
@@ -88,10 +92,17 @@ Beide Mappen werden deshalb aus einer produktiven Datei **erzeugt**
 (`anonymisiere.py`, reine XML-Chirurgie im entpackten Zip — openpyxl darf sie nie
 speichern). Damit können sie auch nicht mehr unbemerkt von der Arbeitsdatei abweichen.
 
-`pruefe_anonym.py` sucht acht Spuren und läuft bei jedem Push. Absichtlich **nicht**
-gemeldet werden Lernbereichsnamen und Lehrplan-Codes — die stehen so im LehrplanPLUS und
-sind öffentlich. Gemeldet wird, was den Nutzer, seine Schule oder seine konkrete
-Unterrichtsplanung erkennbar macht.
+`pruefe_anonym.py` durchsucht **jeden Teil** der Mappe, auch `xl/vbaProject.bin`, in
+cp1252 wie in UTF-16LE. Die frühere Ausnahme für den VBA-Strom — „dort steht ohnehin nur
+der Quelltext, der als `.bas` im Repository liegt" — hat zwei Lecks durchgelassen:
+`modKonfig` wird nie als `.bas` ausgeliefert, steckt aber einkompiliert in jeder Mappe,
+und eine nicht neu gebaute Mappe enthält weiter die **alte** Fassung eines geänderten
+Moduls. So lagen Blattschutz-Kennwort und Schulnamen im Repository, während die Prüfung
+„SAUBER" meldete.
+
+Absichtlich **nicht** gemeldet werden Lernbereichsnamen und Lehrplan-Codes — die stehen so
+im LehrplanPLUS und sind öffentlich. Gemeldet wird, was den Nutzer, seine Schule oder seine
+konkrete Unterrichtsplanung erkennbar macht.
 
 Die Prüfung bekommt bewusst eine **feste Dateiliste** (`Vorlage/`), auch bei
 `--alle-mappen`. Die eigenen Pläne des Nutzers enthalten selbstverständlich echte Daten;
@@ -301,10 +312,8 @@ Systeme greift, ist keine Mutation.**
 Excel-Selbsttest: **139 bestanden, 0 durchgefallen.** Excel-Mutationstest: **10 von 10.**
 `vbacheck --selbsttest`: **9 von 9.** `pruefe_module --selbsttest`: **7 von 7.**
 `pruefe_datei --selbsttest`: **10 von 10.** `pruefe_formeln --selbsttest`: **4 von 4.**
-`ci_ausgabe --selbsttest`: **13 von 13.** `pruefe_anonym --selbsttest`: **8 von 8.**
-
-Zusammen **61 Mutationen**, die alle nachweislich anschlagen — und die bei jedem Push
-erneut nachweisen müssen, dass sie es noch tun.
+Wie viele Prüfungen und Mutationen es jeweils sind, sagt der Lauf selbst — hier steht
+bewusst keine Zahl. Jede muss bei jedem Push erneut nachweisen, dass sie noch anschlägt.
 
 `pruefe_alles.py` auf dem Windows-Rechner des Nutzers: **alle 11 Schritte grün.**
 

@@ -45,16 +45,21 @@ import shutil
 import sys
 import zipfile
 
+import pruefe_anonym
+
 BLATT = {"sheet1.xml": "Steuerung", "sheet2.xml": "Wochenplan",
          "sheet3.xml": "Lernbereiche", "sheet4.xml": "Einstellungen",
          "sheet5.xml": "Anleitung"}
 
-#  Klarnamen: unabhaengig davon, wo sie stehen.
-PERSONEN = {
-    "Florian Reiser": "Max Mustermann",
-    "St.-Bonaventura-Gymnasium Dillingen": "Beispiel-Gymnasium",
-    "St.-Bonaventura-FOS Dillingen": "Beispiel-FOS",
-}
+#  Klarnamen: unabhaengig davon, wo sie stehen. Sie stehen NICHT hier,
+#  sondern im Abschnitt "ersetzungen" von anonym_muster.local.json - der
+#  Datei, die .gitignore ausschliesst.
+#
+#  Warum das noetig ist: Dieses Skript stand mit denselben drei
+#  Zeichenketten im Repository, die sein Schwesterskript pruefe_anonym.py
+#  aus genau diesem Grund ausgelagert hatte. Ein Werkzeug, das
+#  Personenbezug entfernen soll, darf ihn nicht selbst mitbringen.
+PERSONEN = pruefe_anonym.lokale_datei()["ersetzungen"]
 
 #  Inhaltsspalten je Blatt (Datenzeilen, nicht Kopf, nicht Summenzeile).
 INHALT = {

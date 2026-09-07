@@ -22,10 +22,15 @@ AUFRUF
     derselben Reihenfolge wie die Schulliste in modKonfig.bas.
 
 VORHER LESEN
-    Das Seitenverhaeltnis sollte zum Original passen: der Selbsttest
-    verlangt Breite/Hoehe > 3, die mitgelieferten Platzhalter sind
-    714x80 bzw. 775x80. Ein quadratisches Logo laesst den Test rot werden
-    und sieht im Titelblock gequetscht aus.
+    Das Seitenverhaeltnis muss zum Original passen - die mitgelieferten
+    Platzhalter sind 714x80 und 775x80.
+
+    Darauf ist zu achten, weil es NICHTS nachtraeglich prueft: Der
+    Selbsttest misst mit LogoVerhaeltnis die Breite und Hoehe der FORM,
+    nicht die des Bildes. Die Form bleibt hier unveraendert. Ein
+    quadratisches Logo wird also in den flachen Rahmen gezerrt, sieht im
+    Titelblock gequetscht aus - und der Selbsttest bleibt gruen. Dieses
+    Skript warnt deshalb selbst, wenn das Verhaeltnis stark abweicht.
 """
 import os
 import struct
@@ -56,16 +61,26 @@ def einsetzen(mappe, bilder, ziel=None):
     neu = {}
     for m, pfad in zip(medien, bilder):
         daten = open(pfad, "rb").read()
-        alt, jetzt = masse(z.read(m)), masse(daten)
-        if alt and jetzt:
-            print("  %-16s %sx%s  ->  %-24s %sx%s"
-                  % (os.path.basename(m), alt[0], alt[1],
-                     os.path.basename(pfad), jetzt[0], jetzt[1]))
-            if jetzt[0] / jetzt[1] <= 3:
-                print("     WARNUNG: Verhaeltnis %.2f - der Selbsttest verlangt "
-                      "mehr als 3." % (jetzt[0] / jetzt[1]))
-        else:
-            print("  %s -> %s" % (os.path.basename(m), os.path.basename(pfad)))
+        #  Eine leere oder fremdformatige Datei stillschweigend
+        #  durchzuwinken waere der schlimmste Ausgang: Der Aufruf meldete
+        #  Erfolg, in der Mappe bliebe das alte Logo stehen - und genau
+        #  darauf verlaesst sich jemand, der gerade entbrandet.
+        if not daten:
+            raise SystemExit("%s ist leer." % pfad)
+        jetzt = masse(daten)
+        if jetzt is None:
+            raise SystemExit("%s ist kein PNG. Die Mappe deklariert die "
+                             "Endung png; ein anderes Format kann Excel "
+                             "beim Oeffnen beanstanden." % pfad)
+        alt = masse(z.read(m))
+        print("  %-16s %s  ->  %-24s %sx%s"
+              % (os.path.basename(m),
+                 "%sx%s" % alt if alt else "?",
+                 os.path.basename(pfad), jetzt[0], jetzt[1]))
+        v = jetzt[0] / jetzt[1]
+        if v <= 3:
+            print("     WARNUNG: Verhaeltnis %.2f. Die Form bleibt flach, das "
+                  "Bild wird gezerrt - und kein Test merkt es." % v)
         neu[m] = daten
 
     ziel = ziel or mappe
@@ -74,7 +89,9 @@ def einsetzen(mappe, bilder, ziel=None):
     tmp = ziel + ".neu"
     with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as out:
         for n in reihe:
-            out.writestr(z.getinfo(n), neu.get(n) or z.read(n))
+            #  Bewusst "n in neu" statt "neu.get(n) or ...": ein falsy
+            #  Wert waere sonst still durch das Original ersetzt worden.
+            out.writestr(z.getinfo(n), neu[n] if n in neu else z.read(n))
     z.close()
     os.replace(tmp, ziel)
     print("geschrieben: %s" % ziel)
