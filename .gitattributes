@@ -23,6 +23,15 @@
 # =====================================================================
 * -text
 
+#  Lokal signierte Skripte kommen ohne ihren Signaturblock ins
+#  Repository. Das Testzertifikat gilt nur auf dem Rechner, der es
+#  erzeugt hat; im Repository waere es wertlos und wuerde bei jedem
+#  Signieren eine Scheinaenderung erzeugen.
+#  Einmalig einrichten:
+#      git config filter.signatur.clean "python Makros/signatur_entfernen.py"
+#  Ohne diese Einstellung reicht Git den Inhalt unveraendert durch.
+*.ps1 filter=signatur
+
 #  Ausdruecklich binaer: nie als Text behandeln, nie zu mergen versuchen.
 *.xlsm binary
 *.xlsx binary
