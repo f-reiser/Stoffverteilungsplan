@@ -9,7 +9,7 @@ Diese Anleitung steht nach dem Setup auch als Tabellenblatt
 ----------------------------------------------------------------------
  DATEIEN
 ----------------------------------------------------------------------
-  modStart.bas        die vier Makros, die man von Hand starten darf.
+  modStart.bas        die Makros, die man von Hand starten darf.
                       Das EINZIGE Modul ohne "Option Private Module"
                       und damit das einzige, das in der Makroliste
                       (Alt+F8) auftaucht.
@@ -168,15 +168,17 @@ Diese Anleitung steht nach dem Setup auch als Tabellenblatt
 ----------------------------------------------------------------------
  SCHALTFLAECHEN
 ----------------------------------------------------------------------
- Blatt "Steuerung", oben (Alltag):
-   Unterrichtswochen und Ferien erzeugen
-   Stoffverteilungsplan fixieren
-   Fixierung aufheben
-   Als PDF exportieren
+ Blatt "Steuerung" (Quelle: modSteuerung.EnsureSteuerung):
 
- Blatt "Steuerung", unten (selten):
-   Einrichtung / Reparatur
-   Blattschutz ein / aus
+   Im Alltag         Wochenplan neu aufbauen
+                     Stoffverteilungsplan fixieren
+                     Fixierung aufheben
+                     Als PDF exportieren
+
+   Update            Daten importieren
+
+   Selten gebraucht  Einrichtung / Reparatur
+                     Blattschutz ein / aus  (rot, mit Warnzeichen)
 
  Blatt "Einstellungen", direkt bei den Daten:
    Ferien aus Kalender vorschlagen   (ueber der Ferientabelle)
@@ -536,7 +538,7 @@ Diese Anleitung steht nach dem Setup auch als Tabellenblatt
  Dialog stumm. Schaltflaechen (vbOKCancel, vbDefaultButton2) bleiben
  unberuehrt, und die Auswertung fuer mLastError laeuft VORHER, der
  Selbsttest merkt also weiterhin, wenn eine Warnung kam.
- Die vier direkten MsgBox-Aufrufe in modSelbsttest wurden auf
+ Die direkten MsgBox-Aufrufe in modSelbsttest wurden auf
  vbOKOnly umgestellt.
 
 
@@ -612,8 +614,9 @@ Diese Anleitung steht nach dem Setup auch als Tabellenblatt
  SELBSTTEST
 ----------------------------------------------------------------------
  modSelbsttest spielt die riskanten Ablaeufe real in Excel durch und
- schreibt einen Bericht als Selbsttest_Bericht.txt neben die Mappe.
- Rund 80 Pruefungen in acht Abschnitten: Aufbau und Layout,
+ schreibt einen Bericht als Selbsttest_Bericht.txt neben die Mappe;
+ Anzahl und Ergebnis stehen an dessen Ende.
+ Geprueft werden: Aufbau und Layout,
  Formelneuaufbau, Unterrichtswochen und Ferien erzeugen, Verschieben
  ueber eine Ferienzeile hinweg, Einfuegen und Loeschen, Fixieren und
  Code-Vergabe, Blattschutz (auch: laesst sich bei aktivem Schutz noch
