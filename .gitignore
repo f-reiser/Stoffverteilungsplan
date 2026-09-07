@@ -31,6 +31,7 @@
 !.gitattributes
 !README.md
 !CLAUDE.md
+!LICENSE
 
 # --- Quellen, Doku, Pipeline -----------------------------------------
 !Makros/**
@@ -47,8 +48,18 @@
 !Vorlage/Referenzmappe.xlsm
 !Vorlage/Stoffverteilungsplan_Template.xlsm
 
+#  Neutrale Banner in den Massen der echten Logos. Sie stecken in den
+#  beiden Mappen oben; eigene setzt man mit Makros/logos_einsetzen.py.
+!Vorlage/logo-platzhalter-*.png
+
 # --- Ausnahmen von den Ausnahmen -------------------------------------
-#  Blattschutz-Kennwort des Nutzers. Fuer die Pruefskripte liegt
-#  daneben Makros/modKonfig.bas.vorlage mit einem Platzhalter.
+#  Blattschutz-Kennwort und Schulliste des Betreibers. Fuer die
+#  Pruefskripte liegt daneben Makros/modKonfig.bas.vorlage.
 Makros/modKonfig.bas
+
+#  Klarnamen und Schulnamen als Suchmuster fuer Ebene A. Stuenden sie im
+#  Repository, veroeffentlichte ausgerechnet die Pruefung das, was sie
+#  schuetzen soll. Vorlage: anonym_muster.local.json.vorlage
+Makros/anonym_muster.local.json
+
 Makros/__pycache__/
