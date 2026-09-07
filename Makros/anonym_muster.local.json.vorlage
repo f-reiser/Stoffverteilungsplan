@@ -1,12 +1,23 @@
-[
-  {
-    "name": "Klarname der Lehrkraft",
-    "muster": "Vorname\\s+Nachname",
-    "beispiel": "Vorname Nachname"
-  },
-  {
-    "name": "Schulname",
-    "muster": "Name-der-Schule",
-    "beispiel": "Name-der-Schule Musterstadt"
+{
+  "muster": [
+    {
+      "name": "Klarname der Lehrkraft",
+      "muster": "Vorname[\\s_.-]*Nachname",
+      "beispiel": "Vorname Nachname"
+    },
+    {
+      "name": "Schulname",
+      "muster": "Name-der-Schule",
+      "beispiel": "Name-der-Schule Musterstadt"
+    },
+    {
+      "name": "Blattschutz-Kennwort",
+      "muster": "HIER-DAS-EIGENE-KENNWORT",
+      "beispiel": "HIER-DAS-EIGENE-KENNWORT"
+    }
+  ],
+  "ersetzungen": {
+    "Vorname Nachname": "Max Mustermann",
+    "Name-der-Schule Musterstadt": "Schule 1"
   }
-]
+}

@@ -25,11 +25,17 @@ Es wirft die x14-Erweiterungen weg und beschädigt `xl/vbaProject.bin`. Lesen is
 unproblematisch. Schreiben nur als XML-Chirurgie im entpackten Zip.
 
 **4. `modKonfig.bas` wird nie ausgeliefert und nie überschrieben.**
-Dort steht das Blattschutz-Kennwort des Nutzers **und seine Schulliste**
-(`SCHULLISTE`, semikolongetrennt; die Reihenfolge bestimmt die Logo-Zuordnung).
-Das Repository ist öffentlich — alles Standortabhängige gehört in dieses Modul oder in
-`anonym_muster.local.json`, beide in `.gitignore`. Wie ein Nutzer seine Schule einträgt:
-`Doku/Eigene_Schule_einrichten.md`.
+Dort steht das Blattschutz-Kennwort des Nutzers. Deshalb darf dort auch **nichts
+Neues verlangt werden**: eine zusätzliche Konstante zerlegt jede bestehende Installation
+beim nächsten Kompilieren, und die CI sieht das nie, weil sie die `.vorlage` einsetzt.
+
+Standortabhängiges gehört nach `modKonfig.bas` oder `anonym_muster.local.json`, beide in
+`.gitignore` — oder in die Mappe des Nutzers selbst (so die Schulnamen im Blatt
+„Einstellungen"). Wie ein Nutzer das einrichtet: `Doku/Eigene_Schule_einrichten.md`.
+
+**Das Kennwort steckt einkompiliert in jeder `.xlsm`.** Eine Mappe für das Repository
+wird deshalb aus einer frischen Mappe mit `modKonfig.bas.vorlage` gebaut, außerhalb von
+OneDrive. Ebene A prüft das.
 
 **5. Testgetrieben, immer.** Siehe unten.
 

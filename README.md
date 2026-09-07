@@ -23,7 +23,7 @@ Doku/       Arbeitsweise, Fallstricke, Prüfebenen, offene Punkte
 cd Makros && python3 pruefe_alles.py
 ```
 
-Elf Schritte, 61 Mutationstests. Derselbe Aufruf läuft in der CI bei jedem Push.
+Derselbe Aufruf läuft in der CI bei jedem Push.
 Rückgabewert 0 heißt grün. Was sich nicht automatisieren lässt — der Selbsttest in echtem
 Excel und die fremde Gegenlese — steht in `Doku/Testebenen.md`.
 

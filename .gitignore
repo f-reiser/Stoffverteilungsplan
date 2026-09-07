@@ -60,6 +60,13 @@ Makros/modKonfig.bas
 #  Klarnamen und Schulnamen als Suchmuster fuer Ebene A. Stuenden sie im
 #  Repository, veroeffentlichte ausgerechnet die Pruefung das, was sie
 #  schuetzen soll. Vorlage: anonym_muster.local.json.vorlage
-Makros/anonym_muster.local.json
+#  ... und alles, was danebenliegt: Sicherungskopien und weitere
+#  *.local.*-Dateien. Ohne diese zwei Zeilen waere `Makros/` trotz
+#  Whitelist faktisch eine Blacklist mit zwei Eintraegen - ausgerechnet
+#  in dem Verzeichnis, in dem Kennwort und Klarnamen liegen.
+Makros/*.local.*
+!Makros/*.local.*.vorlage
+Makros/*.bak
+Makros/*.orig
 
 Makros/__pycache__/

@@ -21,11 +21,3 @@ Option Explicit
 '=====================================================================
 
 Public Const SCHUTZ_PW As String = "BITTE-EIGENES-KENNWORT-EINTRAGEN"
-
-
-'  Die Schulen dieser Mappe, mit Semikolon getrennt. Die Reihenfolge
-'  bestimmt, welches eingebettete Logo zu welcher Schule gehoert:
-'  die erste Schule bekommt wpKopfLogo_1, die zweite wpKopfLogo_2.
-'  Eigene Logos setzt man mit Makros/logos_einsetzen.py in die Mappe.
-'  Leer lassen heisst: keine Schulliste vorbelegen.
-Public Const SCHULLISTE As String = "Beispielschule A;Beispielschule B"
