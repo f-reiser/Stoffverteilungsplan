@@ -159,6 +159,13 @@ def anonymisiere(quelle, ziel):
             t = z.read(n).decode("utf-8")
         vorher = t
         t = re.sub(r'<definedName name="wpPdfOrdner".*?</definedName>', "", t)
+        #  Excel merkt sich in workbook.xml den Ordner, aus dem die Mappe
+        #  zuletzt gespeichert wurde - als absoluter Pfad mit dem
+        #  Windows-Benutzernamen, bei OneDrive sogar als URL mit Konto und
+        #  Mandant. Der ganze mc:AlternateContent-Block faellt weg; er
+        #  traegt ausser diesem Pfad nichts.
+        t = re.sub(r"<mc:AlternateContent[^>]*>(?:(?!</mc:AlternateContent>).)*?"
+                   r"absPath.*?</mc:AlternateContent>", "", t, flags=re.S)
         for alt, wert in PERSONEN.items():
             t = t.replace(alt, wert)
         if t != vorher:
