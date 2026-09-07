@@ -53,9 +53,14 @@
 !Vorlage/logo-platzhalter-*.png
 
 # --- Ausnahmen von den Ausnahmen -------------------------------------
-#  Blattschutz-Kennwort und Schulliste des Betreibers. Fuer die
-#  Pruefskripte liegt daneben Makros/modKonfig.bas.vorlage.
-Makros/modKonfig.bas
+#  Blattschutz-Kennwort des Betreibers. Fuer die Pruefskripte liegt
+#  daneben Makros/modKonfig.bas.vorlage.
+#
+#  Bewusst mit * am Ende: beim Modultausch entstehen Fassungen wie
+#  modKonfig.bas_ oder modKonfig.bas.alt. Eine Regel auf den exakten
+#  Namen haette genau die durchgelassen - mitsamt dem alten Kennwort.
+Makros/modKonfig.bas*
+!Makros/modKonfig.bas.vorlage
 
 #  Klarnamen und Schulnamen als Suchmuster fuer Ebene A. Stuenden sie im
 #  Repository, veroeffentlichte ausgerechnet die Pruefung das, was sie

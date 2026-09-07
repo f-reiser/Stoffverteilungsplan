@@ -74,7 +74,10 @@ SPUREN = [
 #  trifft ein loses Muster wie das der E-Mail-Adresse staendig auf
 #  Rauschen ("@pp..aq..I.Q") - und ein Pruefer, der bei jedem Lauf
 #  Fehlalarme meldet, wird bald ignoriert.
-NUR_XML = {"E-Mail-Adresse"}
+#  "OneDrive" steht als Wort auch im Quelltext von modKopf - dort wertet
+#  eine Prozedur die Umgebungsvariable aus. Das ist legitimer Code und
+#  kein Personenbezug; gemeint sind Pfade, und die stehen im XML.
+NUR_XML = {"E-Mail-Adresse", "OneDrive-Pfad"}
 
 #  Standortabhaengige Angaben: Klarnamen, Schulnamen, Kennwoerter.
 #  Die Datei ist in .gitignore; daneben liegt die .vorlage als Beispiel.

@@ -99,6 +99,44 @@ def erste_gefuellte(mappen):
     return None
 
 
+def nur_versionierte(pfade):
+    """Filtert heraus, was .gitignore ausschliesst.
+
+    Ebene A soll beantworten, ob etwas Produktives INS REPOSITORY
+    geraet. Eigene Sicherungen, die im selben Ordner liegen
+    ("... old.xlsm"), enthalten selbstverstaendlich echte Daten - sie
+    mitzupruefen erzeugt ein Rot, das mit dem Repository nichts zu tun
+    hat, und eine dauerhaft rote Pruefung liest bald niemand mehr.
+
+    Ohne Git faellt die Filterung weg; dann wird alles geprueft.
+    """
+    wurzel = os.path.dirname(HIER)
+    #  Git erwartet Pfade relativ zur Wurzel mit Schraegstrichen. Mit
+    #  "..\\Vorlage\\x.xlsm" findet check-ignore nichts und meldet das
+    #  auch nicht als Fehler - es filtert dann stillschweigend nichts.
+    rel = {p: os.path.relpath(os.path.abspath(p), wurzel).replace("\\", "/")
+           for p in pfade}
+    #  Bewusst BYTES statt text=True: im Textmodus haengt Python unter
+    #  Windows an jede Zeile ein \r. Git sucht dann nach "…xlsm\r",
+    #  findet die Ausnahmeregel der Whitelist nicht mehr und meldet auch
+    #  die echte Referenzmappe als ignoriert - der Filter haette
+    #  ausgerechnet die Datei uebersprungen, um die es geht.
+    try:
+        e = subprocess.run(["git", "check-ignore", "-z", "--stdin"], cwd=wurzel,
+                           input=b"\0".join(p.encode("utf-8")
+                                            for p in rel.values()),
+                           capture_output=True)
+    except OSError:
+        return pfade
+    ignoriert = {z.decode("utf-8") for z in e.stdout.split(b"\0") if z}
+    behalten = [p for p in pfade if rel[p] not in ignoriert]
+    for p in pfade:
+        if p not in behalten:
+            print("Hinweis: %s ist in .gitignore - nicht Teil des "
+                  "Repositorys, wird uebersprungen." % os.path.basename(p))
+    return behalten
+
+
 def module_bereitstellen():
     """Legt die Module in ein Arbeitsverzeichnis, notfalls mit Konfig-Vorlage.
 
@@ -186,8 +224,8 @@ def main():
         #  Repository. Die eigenen Plaene des Nutzers enthalten
         #  selbstverstaendlich echte Daten - sie hier mitzupruefen waere
         #  eine dauerhaft rote Meldung ohne Aussage.
-        repo_mappen = sorted(glob.glob(os.path.join(HIER, "..", "Vorlage",
-                                                    "*.xlsm")))
+        repo_mappen = nur_versionierte(
+            sorted(glob.glob(os.path.join(HIER, "..", "Vorlage", "*.xlsm"))))
         if repo_mappen:
             ergebnisse.append(lauf(
                 "Ebene A  keine produktiven Inhalte in Vorlage/",
