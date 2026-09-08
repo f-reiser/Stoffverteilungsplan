@@ -86,6 +86,17 @@ jobs:
           #  ohne Zusatzguthaben hergibt - ohne dass jemand daran denken
           #  muss. Kommt einmal ein besseres Modell ausserhalb der
           #  Opus-Reihe, ist HIER die Stelle, die nachgezogen wird.
+          #  Im agent-Modus setzt die Action WEDER einen permission-mode NOCH
+          #  erlaubte Werkzeuge - und im Headless-Betrieb gibt es niemanden,
+          #  der eine Rueckfrage beantwortet, also gilt alles Nichterlaubte als
+          #  abgelehnt. Der erste Testlauf scheiterte genau daran: Schon
+          #  "gh --version" wurde verweigert.
+          #
+          #  Die Sperrliste macht aus vier Prosa-Verboten des Prompts eine
+          #  Regel, die nicht vom Wohlwollen des Modells abhaengt. Sie hat
+          #  Vorrang vor der Erlaubnis - "Bash(gh *)" oeffnet also nicht
+          #  wieder, was hier zu steht.
+          #
           #  --json-schema erzwingt eine maschinenlesbare Schlussmeldung und
           #  fuellt damit den Output "structured_output". Ohne sie waere die
           #  Angabe, welche Skills gegolten haben, nur Prosa im Log - und bei
@@ -94,6 +105,9 @@ jobs:
             --model opus
             --effort high
             --max-turns 80
+            --permission-mode acceptEdits
+            --allowedTools "Bash(gh *),Bash(git *),Bash(python3 *),Bash(python *),Bash(cd *),Task,Agent"
+            --disallowedTools "Bash(gh pr merge *),Bash(gh release *),Bash(gh workflow *),Bash(gh secret *),Bash(gh variable *),Bash(gh label *),Bash(gh repo delete *)"
             --json-schema '{"type":"object","additionalProperties":false,"required":["skills","ergebnis"],"properties":{"skills":{"type":"array","items":{"type":"string"},"description":"Namen der Skills, die in diesem Lauf geladen waren und angewandt wurden"},"ergebnis":{"type":"string","enum":["abgearbeitet","nichts_gefunden","zurueckgestellt","rueckfrage","abgebrochen"]},"vorgang":{"type":"string","description":"Nummer des bearbeiteten Issues oder Pull Requests, sonst leer"},"bemerkung":{"type":"string"}}}'
           prompt: |
             Automatischer Durchgang: Vorgaenge mit einem Auftragslabel
