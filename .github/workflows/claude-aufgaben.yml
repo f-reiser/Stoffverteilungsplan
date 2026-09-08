@@ -118,7 +118,7 @@ jobs:
             --max-turns 300
             --permission-mode acceptEdits
             --allowedTools "Bash(gh *),Bash(git *),Bash(python3 *),Bash(python *),Bash(cd *),Task,Agent"
-            --disallowedTools "Bash(gh pr merge *),Bash(gh release *),Bash(gh workflow *),Bash(gh secret *),Bash(gh variable *),Bash(gh label *),Bash(gh repo delete *)"
+            --disallowedTools "Bash(gh pr merge *),Bash(gh release *),Bash(gh workflow disable *),Bash(gh workflow enable *),Bash(gh secret *),Bash(gh variable *),Bash(gh label *),Bash(gh repo delete *)"
             --json-schema '{"type":"object","additionalProperties":false,"required":["skills","ergebnis"],"properties":{"skills":{"type":"array","items":{"type":"string"},"description":"Namen der Skills, die in diesem Lauf geladen waren und angewandt wurden"},"ergebnis":{"type":"string","enum":["abgearbeitet","nichts_gefunden","zurueckgestellt","rueckfrage","abgebrochen"]},"vorgang":{"type":"string","description":"Nummer des bearbeiteten Issues oder Pull Requests, sonst leer"},"bemerkung":{"type":"string"}}}'
           prompt: |
             Automatischer Durchgang: Vorgaenge mit einem Auftragslabel
