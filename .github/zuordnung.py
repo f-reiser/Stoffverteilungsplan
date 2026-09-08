@@ -7,9 +7,10 @@ Liest zwei Dateien, die der Workflow-Schritt vorher erzeugt hat:
     branches.txt  je Zeile der Name eines Branches im Repository
 
 Schreibt nach GITHUB_OUTPUT:
-    offen          Zahl der Vorgaenge mit Auftragslabel
-    weiter_nr      Vorgang, an dem weitergearbeitet werden MUSS (sonst leer)
-    weiter_branch  dessen Branch (sonst leer)
+    offen       Zahl der Vorgaenge mit Auftragslabel
+    fortsetzen  angefangene Vorgaenge als "nr auf branch", mit "; " getrennt
+                (sonst leer). Hoechstens so viele, wie ein Durchgang
+                ueberhaupt annehmen darf - der Rest wartet auf den naechsten.
 
 WARUM DAS HIER STEHT UND NICHT IM PROMPT
     Ein abgebrochener Lauf hinterlaesst einen Branch, waehrend das Issue
@@ -29,6 +30,11 @@ import sys
 #  diese Datei gibt.
 SCHEMA = re.compile(r"^issue-(\d+)-[A-Za-z0-9._-]+$")
 
+#  Deckungsgleich mit "Hoechstens drei Vorgaenge pro Durchgang" aus
+#  github-issue-workflow. Mehr anzureichen waere sinnlos: Der Lauf duerfte
+#  sie ohnehin nicht annehmen.
+HOECHSTENS = 3
+
 
 def lies(pfad):
     try:
@@ -39,7 +45,7 @@ def lies(pfad):
 
 
 def zuordnen(nummern, branches):
-    """(weiter_nr, weiter_branch, meldungen)"""
+    """(paare, meldungen) - paare als Liste (nr, branch), hoechstens HOECHSTENS"""
     offen = sorted({int(n) for n in nummern if n.isdigit()})
     je_nummer = {}
     fremd = []
@@ -64,35 +70,37 @@ def zuordnen(nummern, branches):
             meldungen.append("Branch ohne offenen Auftrag (Label entfernt?): "
                              + ", ".join(sorted(bs)))
 
-    kandidaten = [(nr, sorted(bs)) for nr, bs in sorted(je_nummer.items())
-                  if nr in offen]
-    if not kandidaten:
-        return "", "", meldungen
+    paare = []
+    for nr, bs in sorted(je_nummer.items()):
+        if nr not in offen:
+            continue
+        if len(bs) > 1:
+            #  Zwei Branches zu einem Vorgang kann der Runner nicht
+            #  aufloesen; raten waere schlimmer als abgeben.
+            meldungen.append("Mehrere Branches zu Vorgang %d (%s) - keine "
+                             "Vorgabe, das Modell entscheidet."
+                             % (nr, ", ".join(sorted(bs))))
+            continue
+        paare.append((nr, bs[0]))
 
-    nr, bs = kandidaten[0]
-    if len(bs) > 1:
-        #  Zwei Branches zu einem Vorgang kann der Runner nicht aufloesen;
-        #  raten waere schlimmer als abgeben.
-        meldungen.append("Mehrere Branches zu Vorgang %d (%s) - keine "
-                         "Vorgabe, das Modell entscheidet." % (nr, ", ".join(bs)))
-        return "", "", meldungen
-    if len(kandidaten) > 1:
-        meldungen.append("Weitere angefangene Vorgaenge warten: "
-                         + ", ".join(str(k[0]) for k in kandidaten[1:]))
-    return str(nr), bs[0], meldungen
+    if len(paare) > HOECHSTENS:
+        meldungen.append("Angefangen sind %d Vorgaenge; %d passen in einen "
+                         "Durchgang, der Rest wartet: %s"
+                         % (len(paare), HOECHSTENS,
+                            ", ".join(str(n) for n, _ in paare[HOECHSTENS:])))
+        paare = paare[:HOECHSTENS]
+    return paare, meldungen
 
 
 def main():
     nummern = lies("nummern.txt")
     branches = lies("branches.txt")
-    nr, branch, meldungen = zuordnen(nummern, branches)
+    paare, meldungen = zuordnen(nummern, branches)
     offen = len({n for n in nummern if n.isdigit()})
+    fortsetzen = "; ".join("%d auf %s" % p for p in paare)
 
     zeilen = ["Vorgaenge mit Auftragslabel: %d" % offen]
-    if nr:
-        zeilen.append("Fortsetzen: #%s auf %s" % (nr, branch))
-    else:
-        zeilen.append("Fortsetzen: nichts angefangen")
+    zeilen.append("Fortsetzen: " + (fortsetzen or "nichts angefangen"))
     zeilen += meldungen
 
     text = chr(10).join(zeilen)
@@ -103,8 +111,7 @@ def main():
     a = os.environ.get("GITHUB_OUTPUT")
     if a:
         io.open(a, "a", encoding="utf-8").write(
-            "offen=%d%sweiter_nr=%s%sweiter_branch=%s%s"
-            % (offen, chr(10), nr, chr(10), branch, chr(10)))
+            "offen=%d%sfortsetzen=%s%s" % (offen, chr(10), fortsetzen, chr(10)))
     return 0
 
 
@@ -119,52 +126,62 @@ def selbsttest():
         if ist != erwartet:
             fehler.append("%s: %r statt %r" % (name, ist, erwartet))
 
+    def paare(nummern, branches):
+        return zuordnen(nummern, branches)[0]
+
+    def meldet(nummern, branches, teil):
+        return any(teil in m for m in zuordnen(nummern, branches)[1])
+
     #  Der Normalfall, um den es geht
-    pruefe("angefangener Vorgang wird gesetzt",
-           lambda: zuordnen(["7", "13"], ["main", "issue-7-leer-definition"])[:2],
-           ("7", "issue-7-leer-definition"))
+    pruefe("angefangener Vorgang wird gereicht",
+           lambda: paare(["7", "13"], ["main", "issue-7-leer-definition"]),
+           [(7, "issue-7-leer-definition")])
+
+    #  Mehrere angefangene: alle, aufsteigend
+    pruefe("mehrere, aufsteigend",
+           lambda: paare(["7", "13"], ["issue-13-x", "issue-7-y"]),
+           [(7, "issue-7-y"), (13, "issue-13-x")])
+
+    #  Mehr als in einen Durchgang passen: gekappt und gemeldet
+    viele = [str(n) for n in (3, 5, 7, 9)]
+    zweige = ["issue-%d-x" % n for n in (3, 5, 7, 9)]
+    pruefe("auf HOECHSTENS gekappt",
+           lambda: len(paare(viele, zweige)), HOECHSTENS)
+    pruefe("und der Rest genannt",
+           lambda: meldet(viele, zweige, "der Rest wartet"), True)
 
     #  Aehnliche Nummer darf nicht treffen
-    pruefe("17 ist nicht 7",
-           lambda: zuordnen(["7"], ["main", "issue-17-etwas"])[:2], ("", ""))
+    pruefe("17 ist nicht 7", lambda: paare(["7"], ["main", "issue-17-etwas"]), [])
 
     #  Nichts angefangen
-    pruefe("ohne Branch keine Vorgabe",
-           lambda: zuordnen(["7", "13"], ["main"])[:2], ("", ""))
+    pruefe("ohne Branch nichts", lambda: paare(["7", "13"], ["main"]), [])
 
-    #  Branch ohne Auftrag: keine Vorgabe, aber sichtbar
+    #  Branch ohne Auftrag: nicht reichen, aber sichtbar
     pruefe("Branch ohne offenen Auftrag",
-           lambda: zuordnen(["13"], ["main", "issue-9-alt"])[:2], ("", ""))
+           lambda: paare(["13"], ["main", "issue-9-alt"]), [])
     pruefe("und er wird gemeldet",
-           lambda: any("ohne offenen Auftrag" in m
-                       for m in zuordnen(["13"], ["main", "issue-9-alt"])[2]), True)
+           lambda: meldet(["13"], ["main", "issue-9-alt"], "ohne offenen Auftrag"), True)
 
     #  Schemaverstoss: nicht zugeordnet, aber gemeldet
     pruefe("fremdes Schema nicht zugeordnet",
-           lambda: zuordnen(["7"], ["main", "fix-7-irgendwas"])[:2], ("", ""))
+           lambda: paare(["7"], ["main", "fix-7-irgendwas"]), [])
     pruefe("und gemeldet",
-           lambda: any("ausserhalb des Schemas" in m
-                       for m in zuordnen(["7"], ["main", "fix-7-irgendwas"])[2]), True)
-
-    #  Zwei Branches zu einem Vorgang: lieber abgeben als raten
-    pruefe("mehrdeutig gibt ab",
-           lambda: zuordnen(["7"], ["issue-7-a", "issue-7-b"])[:2], ("", ""))
-
-    #  Der kleinste angefangene Vorgang gewinnt, die anderen werden genannt
-    pruefe("kleinste Nummer zuerst",
-           lambda: zuordnen(["7", "13"], ["issue-13-x", "issue-7-y"])[:2],
-           ("7", "issue-7-y"))
-    pruefe("weitere werden genannt",
-           lambda: any("Weitere angefangene" in m
-                       for m in zuordnen(["7", "13"], ["issue-13-x", "issue-7-y"])[2]),
+           lambda: meldet(["7"], ["main", "fix-7-irgendwas"], "ausserhalb des Schemas"),
            True)
 
+    #  Zwei Branches zu einem Vorgang: dieser faellt raus, andere bleiben
+    pruefe("mehrdeutiger faellt raus, anderer bleibt",
+           lambda: paare(["7", "13"], ["issue-7-a", "issue-7-b", "issue-13-x"]),
+           [(13, "issue-13-x")])
+    pruefe("Mehrdeutigkeit wird gemeldet",
+           lambda: meldet(["7"], ["issue-7-a", "issue-7-b"], "Mehrere Branches"), True)
+
     #  Leere Eingaben duerfen nicht abstuerzen
-    pruefe("gar nichts", lambda: zuordnen([], [])[:2], ("", ""))
+    pruefe("gar nichts", lambda: paare([], []), [])
 
     for f in fehler:
         print("FEHLER: " + f)
-    print("%d von 11 Pruefungen bestanden." % (11 - len(fehler)))
+    print("%d von 13 Pruefungen bestanden." % (13 - len(fehler)))
     return 1 if fehler else 0
 
 

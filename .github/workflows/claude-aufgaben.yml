@@ -144,24 +144,23 @@ jobs:
 
             ## 2. Einen auswaehlen
 
-            Fortzusetzender Vorgang: ${{ steps.vorpruefung.outputs.weiter_nr }}
-            Zugehoeriger Branch:     ${{ steps.vorpruefung.outputs.weiter_branch }}
+            Angefangene Vorgaenge: ${{ steps.vorpruefung.outputs.fortsetzen }}
 
-            STEHEN DORT WERTE, ist die Auswahl bereits getroffen. Ein
-            frueherer Lauf hat an diesem Vorgang gearbeitet und ist
-            abgebrochen. Arbeite an GENAU DIESEM Vorgang auf GENAU DIESEM
-            Branch weiter; waehle nichts anderes aus und lege keinen neuen
-            Branch an:
+            STEHT DORT ETWAS, sind das Vorgaenge, an denen ein frueherer Lauf
+            gearbeitet hat und abgebrochen ist. Sie gehen VOR neuen, in der
+            genannten Reihenfolge, und jeder auf GENAU DEM genannten Branch -
+            lege dafuer keinen neuen an:
 
                 git fetch origin
                 git checkout -b <branch> origin/<branch>
                 git log origin/main..HEAD    # was hat der vorige Lauf schon getan?
                 git rebase origin/main
 
-            Stehen dort keine Werte, waehle nach /github-issue-workflow,
-            Abschnitte "Welches Issue zuerst" und "Unbeaufsichtigte
-            Durchgaenge" - der zweite schraenkt ein, was du in diesem Lauf
-            ueberhaupt anfassen darfst.
+            Bleiben danach Plaetze frei, waehle weitere nach
+            /github-issue-workflow, Abschnitte "Welches Issue zuerst" und
+            "Unbeaufsichtigte Durchgaenge" - der zweite sagt, wie viele
+            Vorgaenge ein Durchgang ueberhaupt annehmen darf. Liegt weniger
+            an, ist der Durchgang eben kuerzer.
 
             Der Branchname ist dabei NICHT frei: Schema "issue-<nr>-<slug>"
             nach git-branch-strategie. Der Schritt vor dir sucht danach.
