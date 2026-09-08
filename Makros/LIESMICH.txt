@@ -116,9 +116,17 @@ Diese Anleitung steht nach dem Setup auch als Tabellenblatt
      veraendert. Auch bei einem Fehler bleibt sie unangetastet.
    - Waehrend des Lesens sind Ereignisse abgeschaltet, damit die
      (aelteren) Makros der alten Datei nicht anlaufen.
-   - Die Uebernahme geht nur in eine noch leere Mappe. Steht im
-     Wochenplan schon etwas, bricht sie ab. Schutz vor dem
-     teuren Fehlklick.
+   - Die Uebernahme geht nur in eine noch leere Mappe; sonst bricht sie
+     ab. Schutz vor dem teuren Fehlklick. "Leer" heisst hier: in keiner
+     Inhaltszeile steht etwas in F, G, H, I oder M - Ferienzeilen sieht
+     MappeIstLeer gar nicht an. Ein Haken in J oder eine
+     Stunden-Kategorie in K allein zaehlt nicht; dahinter steckt keine
+     Planung, die verloren gehen koennte (Issue #7).
+   - E und J duerfen dieser Liste NIE hinzugefuegt werden. Beide werden
+     maschinell in jede Zeile geschrieben - E von
+     UW_Und_Ferien_Generieren, J von ZeilenEinfuegen (auf False). Eine
+     Mappe waere danach nie wieder "leer" und die Uebernahme dauerhaft
+     unbenutzbar. Abschnitt 10 des Selbsttests haelt das fest.
    - Es braucht KEINE Einstellung im Trust Center, keine
      Ausfuehrungsrichtlinie, keine Signatur. Eine zweite Mappe
      oeffnen und Zellen lesen darf Excel von Haus aus.

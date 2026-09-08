@@ -21,7 +21,7 @@ die Zeilenangaben stimmen mit dem aktuellen Stand überein.
 | [#4](https://github.com/f-reiser/Stoffverteilungsplan/issues/4) | „Fehler 0" statt der echten Nummer (Zeile 1347) | sicher |
 | [#5](https://github.com/f-reiser/Stoffverteilungsplan/issues/5) | Reparatur-Rat heilt Mutation 1 und 8 nicht | sicher |
 | [#6](https://github.com/f-reiser/Stoffverteilungsplan/issues/6) | Sechs Checks ohne Mutation, Lücken in Abschnitt 10 und bei der PDF-Ausgabe | noch nicht nachgeprüft |
-| [#7](https://github.com/f-reiser/Stoffverteilungsplan/issues/7) | `MappeIstLeer` prüft nur F/G/H/I/M — **Auslegungsfrage, der Nutzer entscheidet** | Entscheidung offen |
+| [#7](https://github.com/f-reiser/Stoffverteilungsplan/issues/7) | `MappeIstLeer` prüft nur F/G/H/I/M — **entschieden: bleibt so**, ein Haken in J oder eine Kategorie in K allein ist keine Planung | kein Fehler |
 | [#8](https://github.com/f-reiser/Stoffverteilungsplan/issues/8) | Vier veraltete Zahlen in `LIESMICH.txt` | sicher |
 
 Neue Befunde entstehen über `.github/ISSUE_TEMPLATE/gegenlese-befund.yml`. Nicht

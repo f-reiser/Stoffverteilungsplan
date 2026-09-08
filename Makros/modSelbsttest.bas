@@ -1078,6 +1078,7 @@ Private Sub T10_Uebernahme(ByVal ws As Worksheet)
     ' --- 3. Mappe leerraeumen ----------------------------------------
     MappeLeeren ws, zl
     Chk "Mappe gilt danach als leer", modUebernahme.ZielIstLeer()
+    LeerBegriffPruefen ws
 
     ' --- 4. Uebernahme -----------------------------------------------
     nPlan = modUebernahme.UebernahmeAusfuehren(tmp, altName, nLb, nWo, nFer)
@@ -1154,6 +1155,57 @@ Private Sub T10_Uebernahme(ByVal ws As Worksheet)
     Kill tmp
     On Error GoTo 0
     Chk "temporaere Quelldatei aufgeraeumt", (Len(Dir$(tmp)) = 0)
+End Sub
+
+
+'  Was macht eine Mappe "beschrieben"? Wer die Uebernahme in eine als
+'  leer erkannte Mappe laufen laesst, ueberschreibt sie ohne Rueckfrage.
+'  Entschieden ist (Issue #7): nur F, G, H, I und M zaehlen.
+'
+'  Die Spaltenliste steht hier ein zweites Mal - als Kopie, nicht als
+'  Gegenprobe. Sie zeigt nur, wenn eine der fuenf Spalten aus
+'  MappeIstLeer herausfaellt. Das eigentliche Gewicht liegt auf der
+'  zweiten Schleife, den Spalten, die NICHT zaehlen duerfen:
+'    E schreibt UW_Und_Ferien_Generieren maschinell in jede Zeile,
+'    J setzt ZeilenEinfuegen in jeder Zeile auf False.
+'  Kaeme eine der beiden dazu, waere keine Mappe je wieder leer und die
+'  Uebernahme dauerhaft unbenutzbar. K ist der Fall, ueber den der
+'  Nutzer entschieden hat.
+'
+'  Setzt voraus, dass die Mappe gerade leergeraeumt wurde.
+Private Sub LeerBegriffPruefen(ByVal ws As Worksheet)
+    Dim sp As Variant, r As Long
+
+    '  Kein stiller Ausstieg: eine uebersprungene Probe sieht im
+    '  Bericht sonst genauso aus wie eine bestandene.
+    r = modWochenplan.WP_FIRST_ROW()
+    Chk "Spaltenprobe laeuft: erste Planzeile ist keine Ferienzeile", _
+        Not modWochenplan.IsFerienRow(ws, r)
+    If modWochenplan.IsFerienRow(ws, r) Then Exit Sub
+
+    modWochenplan.FastOn ws
+    For Each sp In Array("F", "G", "H", "I", "M")
+        ws.Cells(r, CStr(sp)).Value = "x"
+        Chk "nur Spalte " & sp & " gefuellt: Mappe gilt als beschrieben", _
+            Not modUebernahme.ZielIstLeer()
+        ws.Cells(r, CStr(sp)).ClearContents
+    Next sp
+
+    For Each sp In Array("E", "J", "K")
+        ws.Cells(r, CStr(sp)).Value = "x"
+        '  Ohne diesen Zwischenschritt waere die naechste Pruefung auch
+        '  dann gruen, wenn das Schreiben gar nicht angekommen ist -
+        '  sie erwartet ja "leer".
+        Chk "Spalte " & sp & " liess sich ueberhaupt beschreiben", _
+            (Len(Trim$(CStr(ws.Cells(r, CStr(sp)).Value))) > 0)
+        Chk "nur Spalte " & sp & " gefuellt: Mappe gilt weiter als leer", _
+            modUebernahme.ZielIstLeer()
+        ws.Cells(r, CStr(sp)).ClearContents
+    Next sp
+    modWochenplan.FastOff
+
+    Chk "nach der Spaltenprobe ist die Mappe wieder leer", _
+        modUebernahme.ZielIstLeer()
 End Sub
 
 
