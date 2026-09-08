@@ -33,3 +33,9 @@ jobs:
 
       - name: Alle automatisierbaren Pruefebenen
         run: python Makros/pruefe_alles.py
+
+      #  Die Zuordnung entscheidet, an welchem Vorgang der naechste
+      #  unbeaufsichtigte Lauf weiterarbeitet. Ein Fehler darin faellt sonst
+      #  erst auf, wenn ein abgebrochener Vorgang doppelt angefangen wird.
+      - name: Zuordnung Vorgang zu Branch
+        run: python .github/zuordnung.py --selbsttest

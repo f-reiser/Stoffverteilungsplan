@@ -55,25 +55,27 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          #  Gibt es das Label im Repository (noch) nicht, antwortet gh mit
+          #  Gibt es ein Label im Repository (noch) nicht, antwortet gh mit
           #  einem Fehler statt mit einer leeren Liste - und der Job waere
           #  tot. Ein fehlendes Label heisst hier aber schlicht: nichts zu
-          #  tun. Deshalb auf 0 zurueckfallen, nicht abbrechen.
-          zaehle() {
+          #  tun. Deshalb auf leer zurueckfallen, nicht abbrechen.
+          nummern() {
             gh "$1" list --label "$2" --state open --json number \
-              --jq 'length' 2>/dev/null || echo 0
+              --jq '.[].number' 2>/dev/null || true
           }
-          #  Beide Auftragslabel zaehlen: "Untersuche" ist genauso ein
-          #  Auftrag an den Lauf wie "Einarbeiten", nur ein anderer.
-          summe=0
+          #  Beide Auftragslabel: "Untersuche" ist genauso ein Auftrag an
+          #  den Lauf wie "Einarbeiten", nur ein anderer.
           for label in Einarbeiten Untersuche; do
-            i=$(zaehle issue "$label")
-            p=$(zaehle pr "$label")
-            echo "Offen mit $label: $i Issues, $p Pull Requests" \
-              | tee -a "$GITHUB_STEP_SUMMARY"
-            summe=$((summe + i + p))
-          done
-          echo "offen=$summe" >> "$GITHUB_OUTPUT"
+            nummern issue "$label"
+            nummern pr    "$label"
+          done | sort -un > nummern.txt
+
+          #  Alle Branches, damit der naechste Schritt einem angefangenen
+          #  Vorgang seinen Branch zuordnen kann.
+          gh api --paginate "repos/$GITHUB_REPOSITORY/branches" \
+            --jq '.[].name' 2>/dev/null > branches.txt || true
+
+          python3 .github/zuordnung.py
 
       #  id wieder da: Der letzte Schritt liest die strukturierte Ausgabe.
       - id: claude
@@ -142,9 +144,29 @@ jobs:
 
             ## 2. Einen auswaehlen
 
-            Nach /github-issue-workflow, Abschnitte "Welches Issue zuerst"
-            und "Unbeaufsichtigte Durchgaenge" - der zweite schraenkt ein,
-            was du in diesem Lauf ueberhaupt anfassen darfst.
+            Fortzusetzender Vorgang: ${{ steps.vorpruefung.outputs.weiter_nr }}
+            Zugehoeriger Branch:     ${{ steps.vorpruefung.outputs.weiter_branch }}
+
+            STEHEN DORT WERTE, ist die Auswahl bereits getroffen. Ein
+            frueherer Lauf hat an diesem Vorgang gearbeitet und ist
+            abgebrochen. Arbeite an GENAU DIESEM Vorgang auf GENAU DIESEM
+            Branch weiter; waehle nichts anderes aus und lege keinen neuen
+            Branch an:
+
+                git fetch origin
+                git checkout -b <branch> origin/<branch>
+                git log origin/main..HEAD    # was hat der vorige Lauf schon getan?
+                git rebase origin/main
+
+            Stehen dort keine Werte, waehle nach /github-issue-workflow,
+            Abschnitte "Welches Issue zuerst" und "Unbeaufsichtigte
+            Durchgaenge" - der zweite schraenkt ein, was du in diesem Lauf
+            ueberhaupt anfassen darfst.
+
+            Der Branchname ist dabei NICHT frei: Schema "issue-<nr>-<slug>"
+            nach git-branch-strategie. Der Schritt vor dir sucht danach.
+            Weicht der Name ab, findet der naechste Lauf deine
+            angefangene Arbeit nicht wieder und faengt von vorn an.
 
             ## 3. Abarbeiten
 
