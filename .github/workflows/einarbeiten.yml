@@ -56,14 +56,20 @@ jobs:
           #  tot. Ein fehlendes Label heisst hier aber schlicht: nichts zu
           #  tun. Deshalb auf 0 zurueckfallen, nicht abbrechen.
           zaehle() {
-            gh "$1" list --label Einarbeiten --state open --json number \
+            gh "$1" list --label "$2" --state open --json number \
               --jq 'length' 2>/dev/null || echo 0
           }
-          i=$(zaehle issue)
-          p=$(zaehle pr)
-          echo "Offen mit Label Einarbeiten: $i Issues, $p Pull Requests" \
-            | tee -a "$GITHUB_STEP_SUMMARY"
-          echo "offen=$((i + p))" >> "$GITHUB_OUTPUT"
+          #  Beide Auftragslabel zaehlen: "Untersuche" ist genauso ein
+          #  Auftrag an den Lauf wie "Einarbeiten", nur ein anderer.
+          summe=0
+          for label in Einarbeiten Untersuche; do
+            i=$(zaehle issue "$label")
+            p=$(zaehle pr "$label")
+            echo "Offen mit $label: $i Issues, $p Pull Requests" \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+            summe=$((summe + i + p))
+          done
+          echo "offen=$summe" >> "$GITHUB_OUTPUT"
 
       - if: steps.vorpruefung.outputs.offen != '0'
         uses: anthropics/claude-code-action@v1
@@ -82,8 +88,13 @@ jobs:
             --effort high
             --max-turns 80
           prompt: |
-            Automatischer Durchgang: Vorgaenge mit dem Label "Einarbeiten"
+            Automatischer Durchgang: Vorgaenge mit einem Auftragslabel
             abarbeiten - Issues wie Pull Requests - in diesem Repository.
+
+            Zwei Label sind Auftraege, und sie bedeuten Verschiedenes:
+            "Einarbeiten" heisst umsetzen, "Untersuche" heisst Fehlverhalten
+            nachstellen und analysieren. Was jeweils zu tun ist, steht im
+            Skill - fuer "Untersuche" im Abschnitt "Bugs untersuchen".
 
             Ein Schritt davor hat bereits geprueft, dass mindestens einer
             offen ist; du wirst gar nicht erst gestartet, wenn nichts anliegt.
@@ -92,6 +103,8 @@ jobs:
 
                 gh issue list --label Einarbeiten --state open --json number,title,updatedAt
                 gh pr    list --label Einarbeiten --state open --json number,title,updatedAt
+                gh issue list --label Untersuche  --state open --json number,title,updatedAt
+                gh pr    list --label Untersuche  --state open --json number,title,updatedAt
 
             Findest du wider Erwarten nichts - jemand hat das Label in den
             letzten Sekunden entfernt -, beenden und das melden.
