@@ -1,9 +1,10 @@
-name: Einarbeiten
+name: Claude-Aufgaben
 
-# Arbeitet alle vier Stunden Vorgaenge mit dem Label "Einarbeiten" ab -
-# Issues wie Pull Requests. Laeuft auf GitHub-Runnern und damit unabhaengig
-# davon, ob der Rechner des Nutzers an ist. Wie viele es je Durchgang sind,
-# steht im Skill, nicht hier.
+# Arbeitet alle vier Stunden Vorgaenge ab, die ein Auftragslabel tragen -
+# Issues wie Pull Requests. Der Name nennt bewusst nicht mehr ein einzelnes
+# Label: "Einarbeiten" war einmal das einzige, inzwischen sind es mehrere.
+# Laeuft auf GitHub-Runnern und damit unabhaengig davon, ob der Rechner des
+# Nutzers an ist. Wie viele Vorgaenge je Durchgang, steht im Skill.
 #
 # Die Regeln stehen NICHT hier, sondern in den Skills des Marketplace
 # f-reiser/claude-skills. Eine Quelle fuer alle Projekte; sonst altert
@@ -19,11 +20,11 @@ on:
 
 # Zwei Laeufe gleichzeitig wuerden denselben Vorgang doppelt bearbeiten.
 concurrency:
-  group: einarbeiten
+  group: claude-aufgaben
   cancel-in-progress: false
 
 jobs:
-  einarbeiten:
+  aufgaben:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
