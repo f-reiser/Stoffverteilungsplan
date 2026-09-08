@@ -26,7 +26,10 @@ concurrency:
 jobs:
   aufgaben:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    #  Gemessen am zweiten Testlauf: 81 Runden in 9,7 Minuten. Wenn die
+    #  Runden auf 300 steigen, muss das Zeitfenster mitwachsen - sonst
+    #  faellt der Lauf nur in die andere Wand.
+    timeout-minutes: 60
     permissions:
       contents: write
       pull-requests: write
@@ -104,7 +107,13 @@ jobs:
           claude_args: |
             --model opus
             --effort high
-            --max-turns 80
+            #  Der zweite Testlauf lief bei 80 Runden aus, nachdem er einen
+            #  Branch angelegt und einen Commit geschrieben hatte. Es fehlte
+            #  der ganze Abschluss: pushen, CI abwarten, Gegenlese,
+            #  Kommentar, Pull Request, Label. Der vorgeschriebene Ablauf hat
+            #  neun Schritte, und "gh run watch" allein kostet mehrere
+            #  Runden - 80 war fuer einen vollstaendigen Vorgang nie genug.
+            --max-turns 300
             --permission-mode acceptEdits
             --allowedTools "Bash(gh *),Bash(git *),Bash(python3 *),Bash(python *),Bash(cd *),Task,Agent"
             --disallowedTools "Bash(gh pr merge *),Bash(gh release *),Bash(gh workflow *),Bash(gh secret *),Bash(gh variable *),Bash(gh label *),Bash(gh repo delete *)"
