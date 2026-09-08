@@ -1,0 +1,61 @@
+name: Label-Waechter
+
+# Die Label "Einarbeiten" und "Untersuche" sind Auftraege an die Automatik:
+# "Einarbeiten" laesst den Vier-Stunden-Lauf ein Issue umsetzen, "Untersuche"
+# einen Bug nachstellen. Wer sie vergeben darf, stand bisher nur als Konvention
+# in den Skills - und eine Konvention haelt niemanden auf.
+#
+# Wer sie technisch setzen KANN, ist nicht die Oeffentlichkeit: Label vergeben
+# setzt mindestens Triage-Recht voraus, ein oeffentliches Repository gibt
+# Fremden nur Lesezugriff. Es sind die eigenen Schreibberechtigten - das
+# Bot-Konto und jeder Workflow-Token mit "issues: write". Genau davor schuetzt
+# diese Datei.
+#
+# Sie nimmt nur zurueck, sie setzt nie. Ein Entfernen loest "unlabeled" aus,
+# worauf hier nichts horcht - eine Schleife ist damit ausgeschlossen.
+
+on:
+  issues:
+    types: [labeled]
+  #  pull_request_target statt pull_request: Bei einem Pull Request aus einem
+  #  Fork bekaeme pull_request nur einen Lesetoken und koennte das Label nicht
+  #  wieder abnehmen. Ausgecheckt wird hier nichts, deshalb ist das gefahrlos.
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  zuruecknehmen:
+    #  Nur die beiden geschuetzten Label, und nur wenn jemand anderes als der
+    #  Nutzer sie gesetzt hat. Alles andere laeuft gar nicht erst an.
+    if: >
+      (github.event.label.name == 'Einarbeiten' ||
+       github.event.label.name == 'Untersuche') &&
+      github.event.sender.login != 'ReiserFlorian'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Label zuruecknehmen und begruenden
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          #  Ein Pull Request ist in der Issues-API dasselbe Objekt wie ein
+          #  Issue, deshalb traegt derselbe Pfad beide Faelle.
+          NR: ${{ github.event.issue.number || github.event.pull_request.number }}
+          LABEL: ${{ github.event.label.name }}
+          WER: ${{ github.event.sender.login }}
+        run: |
+          gh api --method DELETE "repos/$REPO/issues/$NR/labels/$LABEL"
+
+          #  Format einfach gequotet: Der Text enthaelt Backticks, und in
+          #  doppelten Anfuehrungszeichen wuerde die Shell daraus
+          #  Kommandosubstitution machen.
+          printf 'Das Label `%s` wurde von `%s` gesetzt und automatisch wieder entfernt.\n\n`%s` ist ein Auftrag an die Automatik und darf ausschliesslich von `ReiserFlorian` vergeben werden. Durchgesetzt wird das von `.github/workflows/label-waechter.yml`.\n\nIst der Auftrag berechtigt, setzt ihn der Nutzer selbst.\n' \
+            "$LABEL" "$WER" "$LABEL" > "$RUNNER_TEMP/kommentar.md"
+
+          gh api --method POST "repos/$REPO/issues/$NR/comments" \
+            -F "body=@$RUNNER_TEMP/kommentar.md"
+          echo "::warning::$LABEL von $WER gesetzt und zurueckgenommen (#$NR)"
