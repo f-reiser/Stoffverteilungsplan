@@ -1,9 +1,10 @@
 name: Label-Waechter
 
-# Die Label "Einarbeiten" und "Untersuche" sind Auftraege an die Automatik:
-# "Einarbeiten" laesst den Vier-Stunden-Lauf ein Issue umsetzen, "Untersuche"
-# einen Bug nachstellen. Wer sie vergeben darf, stand bisher nur als Konvention
-# in den Skills - und eine Konvention haelt niemanden auf.
+# Drei Label sind Auftraege an die Automatik: "Einarbeiten" laesst den
+# Vier-Stunden-Lauf ein Issue umsetzen, "Untersuche" einen Bug nachstellen,
+# "Gegenlese" verlangt danach zusaetzlich eine fremde Gegenlese. Wer sie
+# vergeben darf, stand bisher nur als Konvention in den Skills - und eine
+# Konvention haelt niemanden auf.
 #
 # Wer sie technisch setzen KANN, ist nicht die Oeffentlichkeit: Label vergeben
 # setzt mindestens Triage-Recht voraus, ein oeffentliches Repository gibt
@@ -29,11 +30,16 @@ permissions:
 
 jobs:
   zuruecknehmen:
-    #  Nur die beiden geschuetzten Label, und nur wenn jemand anderes als der
-    #  Nutzer sie gesetzt hat. Alles andere laeuft gar nicht erst an.
+    #  Nur die geschuetzten Label, und nur wenn jemand anderes als der Nutzer
+    #  sie gesetzt hat. Alles andere laeuft gar nicht erst an.
+    #
+    #  NICHT geschuetzt ist "GegenleseBefund": Das setzt Claude selbst, wenn
+    #  eine Gegenlese etwas gefunden hat. Die Namen liegen dicht beieinander -
+    #  geschuetzt ist der Auftrag, nicht der Befund.
     if: >
       (github.event.label.name == 'Einarbeiten' ||
-       github.event.label.name == 'Untersuche') &&
+       github.event.label.name == 'Untersuche' ||
+       github.event.label.name == 'Gegenlese') &&
       github.event.sender.login != 'ReiserFlorian'
     runs-on: ubuntu-latest
     timeout-minutes: 5
