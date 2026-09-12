@@ -75,18 +75,32 @@ jobs:
       #  sonst entstuende der Kommentar auch an Vorgaengen, an denen gar kein
       #  unbeaufsichtigter Lauf arbeitet.
       - name: Ergebnis im Vorgang vermerken
-        if: always() && startsWith(github.ref_name, 'issue-')
+        if: always() && startsWith(github.head_ref || github.ref_name, 'issue-')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ERGEBNIS: ${{ job.status }}
+          #  head_ref ist bei pull_request der Quellbranch; ref_name waere
+          #  dort '<nr>/merge'. Bei push ist head_ref leer.
+          BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
-          REST=${GITHUB_REF_NAME#issue-}
+          REST=${BRANCH#issue-}
           NR=${REST%%-*}
           case $NR in
             ''|*[!0-9]*)
               echo 'Branchname ohne Vorgangsnummer - nichts zu vermerken.'
               exit 0 ;;
           esac
+
+          #  Auf einem Branch mit Pull Request laeuft die Pruefung zweimal, einmal
+          #  je Ereignis. Ohne diese Schranke stuenden zwei gleiche Zeilen im
+          #  Kommentar. Der push-Lauf tritt zurueck; der pull_request-Lauf
+          #  berichtet, denn den gibt es auch dann, wenn der Push selbst keinen
+          #  Lauf ausgeloest hat.
+          if [ "$GITHUB_EVENT_NAME" = push ] \
+             && [ -n "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            echo 'Es gibt einen offenen Pull Request - der pull_request-Lauf vermerkt.'
+            exit 0
+          fi
           if [ "$ERGEBNIS" = success ]; then
             STAND='**gruen**'
           else
@@ -94,4 +108,4 @@ jobs:
           fi
           LAUF=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
           python3 .github/fortschritt.py vermerk "$NR" \
-            "Pruefung $STAND fuer \`${GITHUB_SHA:0:7}\` auf \`$GITHUB_REF_NAME\` ([Lauf]($LAUF))."
+            "Pruefung $STAND fuer \`${GITHUB_SHA:0:7}\` auf \`$BRANCH\` ([Lauf]($LAUF))."
