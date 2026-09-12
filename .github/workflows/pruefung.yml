@@ -14,6 +14,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
 jobs:
   pruefung:
     runs-on: ubuntu-latest
@@ -50,3 +55,43 @@ jobs:
       #  setzt - siehe label-waechter.yml.
       - name: Berechtigung fuer die Steuerlabel
         run: python .github/berechtigt.py --selbsttest
+
+      #  Bricht das Blockzitat des Fortschrittskommentars auf, steht die Haelfte
+      #  des Standes als Fliesstext im Vorgang - und findet die Marke ihn nicht
+      #  wieder, legt jeder Lauf einen neuen an.
+      - name: Fortschrittskommentar
+        run: python .github/fortschritt.py --selbsttest
+
+      #  Das Ergebnis dort hinterlassen, wo ein Folgelauf ohnehin nachsieht.
+      #
+      #  Ein Lauf, der eine angefangene Arbeit aufnimmt, muss als Erstes wissen:
+      #  Stand der Branch zuletzt gruen? Diese Antwort lag bisher nur im
+      #  Actions-Verlauf - er muesste sie sich zusammensuchen, und dafuer bezahlt
+      #  jemand Modellzeit. Jetzt steht sie im Fortschrittskommentar des Vorgangs,
+      #  also in genau dem Text, den der Prompt ihn zuerst lesen heisst.
+      #
+      #  Nur auf Branches nach dem Schema issue-<nr>-*: Nur dort gibt es einen
+      #  Vorgang, zu dem das Ergebnis gehoert. Und nur ANHAENGEN, nie anlegen -
+      #  sonst entstuende der Kommentar auch an Vorgaengen, an denen gar kein
+      #  unbeaufsichtigter Lauf arbeitet.
+      - name: Ergebnis im Vorgang vermerken
+        if: always() && startsWith(github.ref_name, 'issue-')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ERGEBNIS: ${{ job.status }}
+        run: |
+          REST=${GITHUB_REF_NAME#issue-}
+          NR=${REST%%-*}
+          case $NR in
+            ''|*[!0-9]*)
+              echo 'Branchname ohne Vorgangsnummer - nichts zu vermerken.'
+              exit 0 ;;
+          esac
+          if [ "$ERGEBNIS" = success ]; then
+            STAND='**gruen**'
+          else
+            STAND='**ROT** - hier weitermachen, bevor irgendetwas anderes kommt'
+          fi
+          LAUF=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          python3 .github/fortschritt.py vermerk "$NR" \
+            "Pruefung $STAND fuer \`${GITHUB_SHA:0:7}\` auf \`$GITHUB_REF_NAME\` ([Lauf]($LAUF))."
