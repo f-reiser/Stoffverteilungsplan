@@ -51,17 +51,25 @@ jobs:
       #  API-Aufruf; sie im Modell zu stellen kostet einen ganzen Lauf mit
       #  kaltem Cache. Bei 42 Laeufen die Woche ist das der groesste
       #  Einzelposten, den man streichen kann, ohne etwas aufzugeben.
+      #  Die meisten Durchgaenge finden nichts. Diese Frage kostet einen
+      #  API-Aufruf; sie im Modell zu stellen kostet einen ganzen Lauf mit
+      #  kaltem Cache. Bei 42 Laeufen die Woche ist das der groesste
+      #  Einzelposten, den man streichen kann, ohne etwas aufzugeben.
+      #
+      #  Gearbeitet wird in RUNNER_TEMP, nicht im Arbeitsverzeichnis: Der
+      #  Rettungsschritt am Ende committet, was im Baum liegt - Hilfsdateien
+      #  eines Zwischenschritts haetten dort nichts verloren.
       - id: vorpruefung
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: ${{ runner.temp }}
         run: |
           #  Gibt es ein Label im Repository (noch) nicht, antwortet gh mit
           #  einem Fehler statt mit einer leeren Liste - und der Job waere
           #  tot. Ein fehlendes Label heisst hier aber schlicht: nichts zu
           #  tun. Deshalb auf leer zurueckfallen, nicht abbrechen.
           nummern() {
-            gh "$1" list --label "$2" --state open --json number \
-              --jq '.[].number' 2>/dev/null || true
+            gh "$1" list -R "$GITHUB_REPOSITORY" --label "$2" --state open               --json number --jq '.[].number' 2>/dev/null || true
           }
           #  Beide Auftragslabel: "Untersuche" ist genauso ein Auftrag an
           #  den Lauf wie "Einarbeiten", nur ein anderer.
@@ -72,29 +80,69 @@ jobs:
 
           #  Alle Branches, damit der naechste Schritt einem angefangenen
           #  Vorgang seinen Branch zuordnen kann.
-          gh api --paginate "repos/$GITHUB_REPOSITORY/branches" \
-            --jq '.[].name' 2>/dev/null > branches.txt || true
+          gh api --paginate "repos/$GITHUB_REPOSITORY/branches"             --jq '.[].name' 2>/dev/null > branches.txt || true
 
-          #  Die Label je Vorgang - aus ihnen bestimmt der naechste Schritt
-          #  Modell und Aufwand. Beschraenkt auf die Vorgaenge mit
-          #  Auftragslabel: Was dieser Lauf nicht anfasst, darf ihn auch nicht
-          #  teurer machen.
-          for typ in issue pr; do
-            gh "$typ" list --state open --limit 100 --json number,labels \
-              --jq '.[] | [(.number|tostring), ([.labels[].name]|join(","))] | @tsv' \
-              2>/dev/null || true
-          done | sort -u > alle_labels.txt
-          awk -F'\t' 'NR==FNR{n[$1];next} ($1 in n)' \
-            nummern.txt alle_labels.txt > labels.txt
+          #  Je Vorgang, was der naechste Schritt braucht: Label (Modell und
+          #  Aufwand) sowie Alter und Titel (Auswahl und Branchname).
+          #  Beschraenkt auf die Vorgaenge mit Auftragslabel - was dieser Lauf
+          #  nicht anfasst, darf ihn weder teurer machen noch ihn beschaeftigen.
+          hole() {
+            for typ in issue pr; do
+              gh "$typ" list -R "$GITHUB_REPOSITORY" --state open --limit 100                 --json "$1" --jq "$2" 2>/dev/null || true
+            done | sort -u
+          }
+          nur_offene() { awk -F'	' 'NR==FNR{n[$1];next} ($1 in n)' nummern.txt -; }
 
-          python3 .github/zuordnung.py
+          hole number,labels             '.[] | [(.number|tostring), ([.labels[].name]|join(","))] | @tsv'             | nur_offene > labels.txt
+          hole number,updatedAt,title             '.[] | [(.number|tostring), .updatedAt, .title] | @tsv'             | nur_offene > kandidaten.txt
+
+          python3 "$GITHUB_WORKSPACE/.github/zuordnung.py"
 
       #  Welches Modell und welcher Aufwand - aus den Labels, nach festen Regeln.
       #  Das MUSS hier stehen und nicht im Prompt: Ein Lauf kann sein eigenes
       #  Modell nicht mehr waehlen, wenn er schon laeuft.
       - id: modell
         if: steps.vorpruefung.outputs.offen != '0'
-        run: python3 .github/modellwahl.py
+        working-directory: ${{ runner.temp }}
+        run: python3 "$GITHUB_WORKSPACE/.github/modellwahl.py"
+
+      #  Branch und Fortschrittskommentar stehen, BEVOR das erste Token
+      #  bezahlt ist. Am 12.09. lief ein Durchgang zwanzig Minuten und wurde
+      #  vom Nutzungslimit abgeschossen - ohne Branch, ohne Kommentar, ohne
+      #  jede Spur. Die Arbeit war weg, und der naechste Lauf fing von vorn an.
+      #
+      #  Das Modell darum zu bitten, "frueh" einen Branch anzulegen, hilft
+      #  dagegen nur, solange es dazu kommt. Der Runner kommt immer dazu.
+      - id: vorbereiten
+        if: steps.vorpruefung.outputs.vorgang != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NR: ${{ steps.vorpruefung.outputs.vorgang }}
+          BRANCH: ${{ steps.vorpruefung.outputs.branch }}
+        run: |
+          #  Repo-lokal, damit auch das Modell und der Rettungsschritt unter
+          #  derselben Identitaet committen.
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin --quiet
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "Branch $BRANCH gibt es schon - Arbeit wird fortgesetzt."
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+            #  Scheitert das Rebase, ist das kein Grund abzubrechen: Das Modell
+            #  loest Konflikte (git-branch-strategie). Es soll nur nicht in
+            #  einem halb angewandten Rebase aufwachen.
+            git rebase origin/main || {
+              git rebase --abort || true
+              echo "::warning::Rebase auf main nicht automatisch moeglich - das Modell loest den Konflikt."
+            }
+          else
+            git checkout -B "$BRANCH" origin/main
+            git push -u origin "$BRANCH"
+            echo "Branch $BRANCH angelegt und gepusht."
+          fi
+
+          python3 "$GITHUB_WORKSPACE/.github/fortschritt.py" anlegen "$NR" "$BRANCH"
 
       #  id wieder da: Der letzte Schritt liest die strukturierte Ausgabe.
       - id: claude
@@ -162,30 +210,72 @@ jobs:
             Findest du wider Erwarten nichts - jemand hat das Label in den
             letzten Sekunden entfernt -, beenden und das melden.
 
-            ## 2. Einen auswaehlen
+            ## 2. Der Vorgang steht schon fest
+
+            Vorgang: #${{ steps.vorpruefung.outputs.vorgang }}
+            Branch:  ${{ steps.vorpruefung.outputs.branch }} - angelegt, gepusht
+                     und ausgecheckt. Du stehst schon darauf.
+            Fortschrittskommentar: ${{ steps.vorbereiten.outputs.kommentar }}
 
             Angefangene Vorgaenge: ${{ steps.vorpruefung.outputs.fortsetzen }}
 
-            STEHT DORT ETWAS, sind das Vorgaenge, an denen ein frueherer Lauf
-            gearbeitet hat und abgebrochen ist. Sie gehen VOR neuen, in der
-            genannten Reihenfolge, und jeder auf GENAU DEM genannten Branch -
-            lege dafuer keinen neuen an:
+            STEHT DORT ETWAS, hat ein frueherer Lauf daran gearbeitet und ist
+            abgebrochen. Dein Branch ist dann SEIN Branch. Lies zuerst, wie
+            weit er gekommen ist, und lies den Fortschrittskommentar am
+            Vorgang - er sagt dir, wo du einsteigst:
 
-                git fetch origin
-                git checkout -b <branch> origin/<branch>
-                git log origin/main..HEAD    # was hat der vorige Lauf schon getan?
-                git rebase origin/main
+                git log origin/main..HEAD
+
+            Lege KEINEN neuen Branch fuer diesen Vorgang an und benenne den
+            bestehenden nicht um. Der Schritt vor dir hat ihn nach dem Schema
+            "issue-<nr>-<slug>" gebildet und wird ihn beim naechsten Mal
+            genau so wieder suchen.
 
             Bleiben danach Plaetze frei, waehle weitere nach
             /github-issue-workflow, Abschnitte "Welches Issue zuerst" und
             "Unbeaufsichtigte Durchgaenge" - der zweite sagt, wie viele
             Vorgaenge ein Durchgang ueberhaupt annehmen darf. Liegt weniger
-            an, ist der Durchgang eben kuerzer.
+            an, ist der Durchgang eben kuerzer. Fuer die legst du den Branch
+            selbst an, nach demselben Schema.
 
-            Der Branchname ist dabei NICHT frei: Schema "issue-<nr>-<slug>"
-            nach git-branch-strategie. Der Schritt vor dir sucht danach.
-            Weicht der Name ab, findet der naechste Lauf deine
-            angefangene Arbeit nicht wieder und faengt von vorn an.
+            ## 2b. Sichern, waehrend du arbeitest - nicht am Schluss
+
+            Am 12.09. lief ein Durchgang zwanzig Minuten an Vorgang 31 und
+            wurde vom Nutzungslimit abgeschossen. Es gab keinen Branch, keinen
+            Kommentar, keine Spur - zwanzig Minuten Arbeit waren weg, und der
+            naechste Lauf fing bei null an. Das kann dir jederzeit passieren,
+            und du merkst es nicht vorher. Also:
+
+            **Committe und pushe, sobald etwas Ganzes fertig ist** - ein roter
+            Test, ein gruener Test, eine Analyse, ein Teilschritt. Nicht erst,
+            wenn der Vorgang fertig ist. Lieber ein Commit zu viel als einer
+            zu wenig; die Historie raeumst du vor dem Pull Request per Rebase
+            ohnehin auf (git-branch-strategie, "Historie aufraeumen"). Wird es
+            zwischendurch unuebersichtlich, raeum schon zwischendurch auf.
+
+                git add -A && git commit -m "... Refs #<nr>" && git push
+
+            **Halte den Fortschrittskommentar aktuell.** Er hat zwei Leser mit
+            derselben Frage: der Mensch, der wissen will, wie weit es ist, und
+            der Folgelauf, der wissen muss, wo er einsteigt. Schreib hinein,
+            was davon abhaengt - was du herausgefunden hast, was schon steht,
+            was als naechstes drankommt. Nicht deinen Denkweg.
+
+            Es ist EIN Kommentar, der fortgeschrieben wird. Bearbeite ihn:
+
+                gh api repos/$GITHUB_REPOSITORY/issues/comments/<id> --jq .body > k.md
+                # k.md ergaenzen oder kuerzen - JEDE Zeile beginnt mit "> ",
+                # leere Zeilen mit ">" allein, sonst bricht das Blockzitat auf.
+                # Die erste Zeile "<!-- lauf-fortschritt -->" MUSS stehen bleiben,
+                # sonst findet der naechste Lauf den Kommentar nicht wieder.
+                gh api --method PATCH                   repos/$GITHUB_REPOSITORY/issues/comments/<id> -F body=@k.md
+
+            Leg dafuer KEINEN neuen Kommentar an. Ein Vorgang mit zwoelf
+            Statusmeldungen ist unlesbar - und das ist er dann fuer den
+            Menschen wie fuer den naechsten Lauf.
+
+            Wird der Kommentar lang, loesch aus ihm heraus, was erledigt und
+            nicht mehr wissenswert ist. Er ist ein Stand, kein Protokoll.
 
             ## 3. Abarbeiten
 
@@ -294,3 +384,50 @@ jobs:
               print('::error::Pflichtskills nicht angewandt: %s' % ', '.join(fehlt))
               sys.exit(1)
           PRUEFUNG
+
+      #  Der eigentliche Grund fuer diese Datei: Was das Modell im Baum
+      #  liegen laesst, ist nach dem Job weg. Ein Lauf, den das Nutzungslimit
+      #  abschiesst, verliert damit alles, was noch nicht committet war.
+      #  "always()" heisst hier: gerade dann.
+      - name: Angefangene Arbeit sichern
+        if: always() && steps.vorpruefung.outputs.vorgang != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NR: ${{ steps.vorpruefung.outputs.vorgang }}
+          AUSGANG: ${{ steps.claude.conclusion }}
+        run: |
+          #  Nicht der vorbereitete Branch, sondern der, auf dem das Modell
+          #  zuletzt stand: Es darf einen zweiten Vorgang angefangen haben.
+          B=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$B" = "main" ] || [ "$B" = "HEAD" ]; then
+            echo "::warning::Zuletzt auf '$B' - hier wird nichts gesichert."
+            exit 0
+          fi
+
+          GERETTET=""
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -q -m "Zwischenstand aus abgebrochenem Lauf ${GITHUB_RUN_ID}
+
+          Nicht vom Modell committet, sondern beim Aufraeumen des Laufs. Der
+          Folgelauf raeumt das per Rebase auf, bevor ein Pull Request entsteht.
+
+          Refs #${NR}"
+            GERETTET="ja"
+          fi
+
+          #  Auch ohne neuen Commit pushen: Das Modell kann committet und den
+          #  Push nicht mehr geschafft haben.
+          git push -u origin "$B" || echo "::warning::Push von $B fehlgeschlagen."
+
+          if [ "$AUSGANG" = "success" ] && [ -z "$GERETTET" ]; then
+            echo "Sauber beendet, nichts zu sichern."
+            exit 0
+          fi
+
+          TEXT="**Lauf ${GITHUB_RUN_ID} beendet, ohne fertig zu werden** (Ausgang: ${AUSGANG:-abgebrochen})."
+          if [ -n "$GERETTET" ]; then
+            TEXT="$TEXT Nicht committete Arbeit wurde als Zwischenstand auf \`$B\` gesichert."
+          fi
+          TEXT="$TEXT Der naechste Lauf setzt dort fort: \`git log origin/main..origin/$B\`."
+          python3 "$GITHUB_WORKSPACE/.github/fortschritt.py" vermerk "$NR" "$TEXT"
