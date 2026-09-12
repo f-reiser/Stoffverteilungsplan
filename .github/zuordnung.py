@@ -3,11 +3,14 @@
 """Ordnet offenen Vorgaengen ihre bereits vorhandenen Branches zu.
 
 Liest zwei Dateien, die der Workflow-Schritt vorher erzeugt hat:
-    nummern.txt   je Zeile die Nummer eines Vorgangs mit Auftragslabel
-    branches.txt  je Zeile der Name eines Branches im Repository
+    nummern.txt     je Zeile die Nummer eines Vorgangs mit Auftragslabel
+    branches.txt    je Zeile der Name eines Branches im Repository
+    kandidaten.txt  je Zeile "<nr>	<updatedAt>	<titel>" fuer jeden dieser Vorgaenge
 
 Schreibt nach GITHUB_OUTPUT:
     offen       Zahl der Vorgaenge mit Auftragslabel
+    vorgang     die Nummer, mit der dieser Lauf ANFAENGT
+    branch      der Branchname dazu - schon vorhanden oder neu zu bilden
     fortsetzen  angefangene Vorgaenge als "nr auf branch", mit "; " getrennt
                 (sonst leer). Hoechstens so viele, wie ein Durchgang
                 ueberhaupt annehmen darf - der Rest wartet auf den naechsten.
@@ -19,6 +22,11 @@ WARUM DAS HIER STEHT UND NICHT IM PROMPT
     dasselbe Namensschema raet, das der vorige Lauf beim Anlegen benutzt
     hat. Beides entscheidet jetzt der Runner, bevor das Modell startet -
     das kostet nichts und kann nicht anders ausgehen.
+
+    Aus demselben Grund benennt der Runner auch den ERSTEN Vorgang und seinen
+    Branch: Nur so kann der Branch angelegt und gepusht sein, bevor das erste
+    Token bezahlt ist. Ein Lauf, den das Nutzungslimit nach zwanzig Minuten
+    abschiesst, hinterlaesst dann wenigstens einen Ort, an dem etwas steht.
 """
 import io
 import os
@@ -92,6 +100,61 @@ def zuordnen(nummern, branches):
     return paare, meldungen
 
 
+UMLAUTE = {"ä": "ae", "ö": "oe", "ü": "ue",
+           "Ä": "ae", "Ö": "oe", "Ü": "ue", "ß": "ss"}
+
+#  Lang genug, um den Vorgang wiederzuerkennen, kurz genug fuer eine Zeile im
+#  "git branch"-Listing.
+SLUG_LAENGE = 40
+
+
+def slug(titel):
+    """Titel zu einem Branchteil, der SCHEMA erfuellt.
+
+    Nicht kosmetisch: Faellt der Slug leer aus oder enthaelt er ein Zeichen
+    ausserhalb des Schemas, findet der naechste Lauf den Branch nicht wieder -
+    genau der Fall, den diese Datei verhindern soll.
+    """
+    text = "".join(UMLAUTE.get(z, z) for z in titel).lower()
+    sauber = []
+    for z in text:
+        sauber.append(z if (z.isascii() and (z.isalnum() or z in "._")) else "-")
+    wort = "".join(sauber).strip("-")
+    while "--" in wort:
+        wort = wort.replace("--", "-")
+    wort = wort[:SLUG_LAENGE].strip("-.")
+    return wort or "vorgang"
+
+
+def waehle_vorgang(paare, kandidaten):
+    """(nr, branch) fuer den Vorgang, mit dem dieser Lauf anfaengt - sonst (None, None).
+
+    kandidaten: [(nr, updatedAt, titel), ...]
+    """
+    #  Angefangenes zuerst - und zwar auf SEINEM Branch, sonst waere die ganze
+    #  Zuordnung oben umsonst.
+    if paare:
+        return paare[0][0], paare[0][1]
+    if not kandidaten:
+        return None, None
+    #  Sonst das am laengsten Unveraenderte: "updatedAt" aufsteigend, bei
+    #  Gleichstand die kleinere Nummer, damit zwei Laeufe dasselbe waehlen.
+    nr, _, titel = sorted(kandidaten, key=lambda k: (k[1], k[0]))[0]
+    return nr, "issue-%d-%s" % (nr, slug(titel))
+
+
+def lies_kandidaten(pfad):
+    """[(nr, updatedAt, titel), ...] - Zeilen ohne Nummer werden uebergangen."""
+    kandidaten = []
+    for zeile in lies(pfad):
+        teile = zeile.split(chr(9))
+        if len(teile) < 3 or not teile[0].strip().isdigit():
+            continue
+        kandidaten.append((int(teile[0].strip()), teile[1].strip(),
+                           chr(9).join(teile[2:]).strip()))
+    return kandidaten
+
+
 def main():
     nummern = lies("nummern.txt")
     branches = lies("branches.txt")
@@ -99,7 +162,11 @@ def main():
     offen = len({n for n in nummern if n.isdigit()})
     fortsetzen = "; ".join("%d auf %s" % p for p in paare)
 
+    nr, branch = waehle_vorgang(paare, lies_kandidaten("kandidaten.txt"))
+
     zeilen = ["Vorgaenge mit Auftragslabel: %d" % offen]
+    zeilen.append("Dieser Lauf faengt an mit: "
+                  + ("%s auf %s" % (nr, branch) if nr else "nichts"))
     zeilen.append("Fortsetzen: " + (fortsetzen or "nichts angefangen"))
     zeilen += meldungen
 
@@ -111,7 +178,9 @@ def main():
     a = os.environ.get("GITHUB_OUTPUT")
     if a:
         io.open(a, "a", encoding="utf-8").write(
-            "offen=%d%sfortsetzen=%s%s" % (offen, chr(10), fortsetzen, chr(10)))
+            "offen=%d%sfortsetzen=%s%svorgang=%s%sbranch=%s%s"
+            % (offen, chr(10), fortsetzen, chr(10),
+               nr or "", chr(10), branch or "", chr(10)))
     return 0
 
 
@@ -176,12 +245,58 @@ def selbsttest():
     pruefe("Mehrdeutigkeit wird gemeldet",
            lambda: meldet(["7"], ["issue-7-a", "issue-7-b"], "Mehrere Branches"), True)
 
+    #  --- Wahl des Vorgangs, mit dem der Lauf anfaengt -----------------------
+    #  Der Branch muss stehen, BEVOR das Modell startet. Raet der Runner den
+    #  Namen anders als beim naechsten Mal, findet der Folgelauf nichts wieder.
+
+    K = [(31, "2026-09-10T08:00:00Z", "Nutzer auf fehlerhafte Bezuege hinweisen"),
+         (30, "2026-09-11T08:00:00Z", "Einrichten repariert nicht")]
+
+    pruefe("angefangenes schlaegt neues",
+           lambda: waehle_vorgang([(7, "issue-7-alt")], K), (7, "issue-7-alt"))
+    pruefe("ohne angefangenes das aelteste",
+           lambda: waehle_vorgang([], K),
+           (31, "issue-31-nutzer-auf-fehlerhafte-bezuege-hinweisen"))
+    pruefe("gar nichts", lambda: waehle_vorgang([], []), (None, None))
+
+    #  Bei gleichem Zeitstempel muessen zwei Laeufe dasselbe waehlen.
+    pruefe("Gleichstand nach Nummer",
+           lambda: waehle_vorgang([], [(9, "T", "b"), (4, "T", "a")])[0], 4)
+
+    #  Der Slug MUSS das Schema erfuellen, sonst ist der Branch unauffindbar.
+    for titel in ["Umlaute: äöüÄÖÜß",
+                  "  ---  ", "", "Klammern (und) /Schraegstriche/",
+                  "中文 nur fremd", "Punkt.am.Ende."]:
+        b = waehle_vorgang([], [(5, "T", titel)])[1]
+        if not SCHEMA.match(b):
+            fehler.append("Slug verletzt SCHEMA bei %r: %r" % (titel, b))
+
+    pruefe("Umlaute werden umschrieben",
+           lambda: slug("Bezüge ändern"), "bezuege-aendern")
+    pruefe("Slug wird nicht zu lang",
+           lambda: len(slug("x" * 200)) <= SLUG_LAENGE, True)
+    pruefe("leerer Titel ergibt nicht den leeren Slug",
+           lambda: slug("!!!"), "vorgang")
+
+    #  Einlesen der Kandidaten: Tabulatoren, Muell, Titel mit Tabulator
+    import tempfile
+    d = tempfile.mkdtemp()
+    kp = os.path.join(d, "k.txt")
+    io.open(kp, "w", encoding="utf-8", newline="").write(
+        "31" + chr(9) + "2026-01-01" + chr(9) + "Ein" + chr(9) + "Titel" + chr(10) +
+        "Muell ohne Nummer" + chr(10) +
+        "7" + chr(9) + "2026-02-02" + chr(9) + "Zwei" + chr(10))
+    pruefe("Kandidaten einlesen", lambda: lies_kandidaten(kp),
+           [(31, "2026-01-01", "Ein" + chr(9) + "Titel"), (7, "2026-02-02", "Zwei")])
+    pruefe("fehlende Datei", lambda: lies_kandidaten(os.path.join(d, "nix")), [])
+
     #  Leere Eingaben duerfen nicht abstuerzen
     pruefe("gar nichts", lambda: paare([], []), [])
 
     for f in fehler:
         print("FEHLER: " + f)
-    print("%d von 13 Pruefungen bestanden." % (13 - len(fehler)))
+    gesamt = 23
+    print("%d von %d Pruefungen bestanden." % (gesamt - len(fehler), gesamt))
     return 1 if fehler else 0
 
 
