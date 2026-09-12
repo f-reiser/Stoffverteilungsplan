@@ -144,6 +144,14 @@ jobs:
 
           python3 "$GITHUB_WORKSPACE/.github/fortschritt.py" anlegen "$NR" "$BRANCH"
 
+      #  Ersatzmass fuer die Dauer: Die Ausfuehrungsdatei der Action fuehrt eine,
+      #  aber ihr Aufbau ist nirgends zugesagt. Faellt sie aus, steht wenigstens
+      #  die Uhr des Runners zur Verfuegung - sie misst mehr als die API-Zeit,
+      #  und der Kommentar sagt das dann auch.
+      - id: uhr
+        if: steps.vorpruefung.outputs.offen != '0'
+        run: echo "start=$(date +%s)" >> "$GITHUB_OUTPUT"
+
       #  id wieder da: Der letzte Schritt liest die strukturierte Ausgabe.
       - id: claude
         if: steps.vorpruefung.outputs.offen != '0'
@@ -336,9 +344,13 @@ jobs:
             gelassen (welcher Vorgang und warum). Das Letzte ist NICHT
             "nichts gefunden".
 
-      #  Die Angabe, welche Skills gegolten haben, ist Selbstauskunft -
-      #  aber eine, die hier zur Bedingung wird und im Actions-Verlauf rot
-      #  leuchtet, statt in Zeile 300 eines Logs zu stehen.
+      #  Die Angabe, welche Skills gegolten haben, ist Selbstauskunft - aber
+      #  eine, die hier zur Bedingung wird und den Job rot werden laesst.
+      #
+      #  Dieser Schritt BERICHTET nichts mehr; er entscheidet nur noch. Der
+      #  Bericht steht im Abschlusskommentar am Vorgang: In der Job-Summary
+      #  fand ihn niemand - man muss wissen, dass es sie gibt, und im
+      #  Actions-Verlauf danach suchen.
       - name: Skills nachweisen
         if: steps.claude.conclusion == 'success'
         env:
@@ -346,7 +358,7 @@ jobs:
         run: |
           python3 - <<'PRUEFUNG'
           import json, os, sys
-          
+
           roh = os.environ.get('ERGEBNIS', '').strip()
           if not roh:
               print('::error::Keine strukturierte Schlussmeldung - Schema nicht befolgt oder Lauf vorzeitig beendet.')
@@ -356,34 +368,47 @@ jobs:
           except ValueError as e:
               print('::error::Schlussmeldung ist kein gueltiges JSON: %s' % e)
               sys.exit(1)
-          
+
           gemeldet = [str(s).lower() for s in d.get('skills') or []]
           ergebnis = d.get('ergebnis', '?')
-          
+
           #  github-issue-workflow ist der Einstieg und gilt immer.
           #  git-branch-strategie nur, wenn wirklich gearbeitet wurde - eine
           #  Pflicht, die auch auf einen Leerlauf zutraefe, wuerde falsch rot.
           pflicht = ['github-issue-workflow']
           if ergebnis == 'abgearbeitet':
               pflicht.append('git-branch-strategie')
-          
+
           #  Teilstring: Der Lauf darf 'reiser-workflow:github-issue-workflow'
           #  melden, ohne dass die Pruefung daran zerbricht.
           fehlt = [x for x in pflicht if not any(x in g for g in gemeldet)]
-          
-          zeilen = ['Ergebnis: %s' % ergebnis,
-                    'Vorgang: %s' % (d.get('vorgang') or '-'),
-                    'Skills laut Lauf: %s' % (', '.join(gemeldet) or '(keine)')]
-          if d.get('bemerkung'):
-              zeilen.append('Bemerkung: %s' % d['bemerkung'])
-          text = chr(10).join(zeilen)
-          open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8').write(text + chr(10))
-          print(text)
-          
           if fehlt:
               print('::error::Pflichtskills nicht angewandt: %s' % ', '.join(fehlt))
               sys.exit(1)
+          print('Pflichtskills angewandt.')
           PRUEFUNG
+
+      #  Skills, Tokens und Dauer an den Vorgang - dorthin, wo hinsieht, wer
+      #  wissen will, was der Lauf getan und gekostet hat.
+      #
+      #  always(): Gerade der abgebrochene Lauf ist der, dessen Verbrauch
+      #  interessiert. Und "Skills nachweisen" darf davor rot werden, ohne
+      #  diesen Kommentar zu verhindern.
+      - name: Abschlusskommentar
+        if: always() && steps.vorpruefung.outputs.vorgang != '' && steps.claude.outcome != 'skipped'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VORGANG: ${{ steps.vorpruefung.outputs.vorgang }}
+          AUSFUEHRUNGSDATEI: ${{ steps.claude.outputs.execution_file }}
+          SCHLUSSMELDUNG: ${{ steps.claude.outputs.structured_output }}
+          AUSGANG: ${{ steps.claude.conclusion }}
+          START: ${{ steps.uhr.outputs.start }}
+        working-directory: ${{ runner.temp }}
+        run: |
+          if [ -n "$START" ]; then
+            export WANDUHR_S=$(( $(date +%s) - START ))
+          fi
+          python3 "$GITHUB_WORKSPACE/.github/abschluss.py"
 
       #  Der eigentliche Grund fuer diese Datei: Was das Modell im Baum
       #  liegen laesst, ist nach dem Job weg. Ein Lauf, den das Nutzungslimit
