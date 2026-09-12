@@ -39,3 +39,8 @@ jobs:
       #  erst auf, wenn ein abgebrochener Vorgang doppelt angefangen wird.
       - name: Zuordnung Vorgang zu Branch
         run: python .github/zuordnung.py --selbsttest
+
+      #  Modell und Aufwand entscheiden, was ein Lauf kostet. Ein Fehler in der
+      #  Zuordnung von Label zu Modell faellt sonst erst an der Rechnung auf.
+      - name: Modellwahl aus den Labels
+        run: python .github/modellwahl.py --selbsttest

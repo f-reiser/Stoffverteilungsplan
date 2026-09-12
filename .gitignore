@@ -74,4 +74,7 @@ Makros/*.local.*
 Makros/*.bak
 Makros/*.orig
 
-Makros/__pycache__/
+#  In JEDEM Verzeichnis, nicht nur in Makros: Seit .github/ eigene Skripte
+#  enthaelt, entsteht der Bytecode-Cache auch dort - und '!.github/**'
+#  wuerde ihn mitnehmen.
+__pycache__/

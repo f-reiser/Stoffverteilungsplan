@@ -1,19 +1,25 @@
 name: Label-Waechter
 
-# Drei Label sind Auftraege an die Automatik: "Einarbeiten" laesst den
+# Einige Label sind Auftraege an die Automatik: "Einarbeiten" laesst den
 # Vier-Stunden-Lauf ein Issue umsetzen, "Untersuche" einen Bug nachstellen,
-# "Gegenlese" verlangt danach zusaetzlich eine fremde Gegenlese. Wer sie
-# vergeben darf, stand bisher nur als Konvention in den Skills - und eine
-# Konvention haelt niemanden auf.
+# "Gegenlese" verlangt danach zusaetzlich eine fremde Gegenlese. Dazu kommen die
+# Steuerlabel fuer Modell, Version und Aufwand: Sie entscheiden, was ein Lauf
+# kostet. Wer sie vergeben darf, stand bisher nur als Konvention in den Skills -
+# und eine Konvention haelt niemanden auf.
 #
 # Wer sie technisch setzen KANN, ist nicht die Oeffentlichkeit: Label vergeben
-# setzt mindestens Triage-Recht voraus, ein oeffentliches Repository gibt
-# Fremden nur Lesezugriff. Es sind die eigenen Schreibberechtigten - das
-# Bot-Konto und jeder Workflow-Token mit "issues: write". Genau davor schuetzt
-# diese Datei.
+# setzt mindestens Triage-Recht voraus, ein oeffentliches Repository gibt Fremden
+# nur Lesezugriff. Es sind die eigenen Schreibberechtigten - das Bot-Konto und
+# jeder Workflow-Token mit "issues: write". Genau davor schuetzt diese Datei.
 #
 # Sie nimmt nur zurueck, sie setzt nie. Ein Entfernen loest "unlabeled" aus,
 # worauf hier nichts horcht - eine Schleife ist damit ausgeschlossen.
+#
+# GEPRUEFT WIRD DIE BERECHTIGUNG, NICHT DER NAME
+# Frueher stand hier ein Kontoname. Das war doppelt schlecht: Es band eine
+# projektunabhaengige Regel an eine Person, und es machte die Datei
+# unbrauchbar fuer jedes andere Repository. Jetzt fragt sie GitHub, wer
+# Admin ist - dieselbe Datei passt damit ueberall hin.
 
 on:
   issues:
@@ -30,21 +36,18 @@ permissions:
 
 jobs:
   zuruecknehmen:
-    #  Nur die geschuetzten Label, und nur wenn jemand anderes als der Nutzer
-    #  sie gesetzt hat. Alles andere laeuft gar nicht erst an.
-    #
-    #  NICHT geschuetzt ist "GegenleseBefund": Das setzt Claude selbst, wenn
-    #  eine Gegenlese etwas gefunden hat. Die Namen liegen dicht beieinander -
-    #  geschuetzt ist der Auftrag, nicht der Befund.
-    if: >
-      (github.event.label.name == 'Einarbeiten' ||
-       github.event.label.name == 'Untersuche' ||
-       github.event.label.name == 'Gegenlese') &&
-      github.event.sender.login != 'ReiserFlorian'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Label zuruecknehmen und begruenden
+      #  Die Liste steht genau EINMAL. Sie zusaetzlich in ein "if:" des Jobs zu
+      #  schreiben wuerde ein paar Sekunden Runnerzeit sparen und dafuer zwei
+      #  Fassungen erzeugen, die auseinanderlaufen koennen - der schlechtere
+      #  Tausch, denn Label-Ereignisse sind selten.
+      #
+      #  NICHT geschuetzt ist "GegenleseBefund": Das setzt Claude selbst, wenn
+      #  eine Gegenlese etwas gefunden hat. Die Namen liegen dicht beieinander -
+      #  geschuetzt ist der Auftrag, nicht der Befund.
+      - name: Label zuruecknehmen, wenn es nicht vom Admin kam
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -53,13 +56,43 @@ jobs:
           NR: ${{ github.event.issue.number || github.event.pull_request.number }}
           LABEL: ${{ github.event.label.name }}
           WER: ${{ github.event.sender.login }}
+          GESCHUETZT: |
+            Einarbeiten
+            Untersuche
+            Gegenlese
+            Opus
+            Sonnet
+            4
+            5
+            niedrig
+            mittel
+            hoch
+            extra hoch
+            maximal
         run: |
+          if ! printf '%s\n' "$GESCHUETZT" | grep -qxF "$LABEL"; then
+            echo "$LABEL ist nicht geschuetzt - nichts zu tun."
+            exit 0
+          fi
+
+          #  404 heisst: kein Collaborator (etwa "github-actions[bot]"). Das ist
+          #  kein Fehler, sondern die Antwort "kein Admin" - deshalb auf leer
+          #  zurueckfallen statt abzubrechen.
+          RECHT=$(gh api "repos/$REPO/collaborators/$WER/permission" \
+                    --jq .permission 2>/dev/null || true)
+          echo "$WER hat Recht: ${RECHT:-keines}"
+
+          if [ "$RECHT" = "admin" ]; then
+            echo "Admin - Label bleibt."
+            exit 0
+          fi
+
           gh api --method DELETE "repos/$REPO/issues/$NR/labels/$LABEL"
 
           #  Format einfach gequotet: Der Text enthaelt Backticks, und in
           #  doppelten Anfuehrungszeichen wuerde die Shell daraus
           #  Kommandosubstitution machen.
-          printf 'Das Label `%s` wurde von `%s` gesetzt und automatisch wieder entfernt.\n\n`%s` ist ein Auftrag an die Automatik und darf ausschliesslich von `ReiserFlorian` vergeben werden. Durchgesetzt wird das von `.github/workflows/label-waechter.yml`.\n\nIst der Auftrag berechtigt, setzt ihn der Nutzer selbst.\n' \
+          printf 'Das Label `%s` wurde von `%s` gesetzt und automatisch wieder entfernt.\n\n`%s` steuert die Automatik und darf ausschliesslich von einem Konto mit Admin-Recht auf diesem Repository vergeben werden. Durchgesetzt wird das von `.github/workflows/label-waechter.yml`.\n\nIst der Auftrag berechtigt, setzt ihn der Nutzer selbst.\n' \
             "$LABEL" "$WER" "$LABEL" > "$RUNNER_TEMP/kommentar.md"
 
           gh api --method POST "repos/$REPO/issues/$NR/comments" \
