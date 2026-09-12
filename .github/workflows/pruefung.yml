@@ -62,6 +62,12 @@ jobs:
       - name: Fortschrittskommentar
         run: python .github/fortschritt.py --selbsttest
 
+      #  Liest eine Datei, deren Aufbau nicht zugesagt ist. Findet es etwas
+      #  nicht, MUSS dort 'nicht ermittelbar' stehen - eine erfundene Zahl
+      #  waere schlimmer als gar keine.
+      - name: Abschlusskommentar
+        run: python .github/abschluss.py --selbsttest
+
       #  Das Ergebnis dort hinterlassen, wo ein Folgelauf ohnehin nachsieht.
       #
       #  Ein Lauf, der eine angefangene Arbeit aufnimmt, muss als Erstes wissen:
