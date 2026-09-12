@@ -51,10 +51,6 @@ jobs:
       #  API-Aufruf; sie im Modell zu stellen kostet einen ganzen Lauf mit
       #  kaltem Cache. Bei 42 Laeufen die Woche ist das der groesste
       #  Einzelposten, den man streichen kann, ohne etwas aufzugeben.
-      #  Die meisten Durchgaenge finden nichts. Diese Frage kostet einen
-      #  API-Aufruf; sie im Modell zu stellen kostet einen ganzen Lauf mit
-      #  kaltem Cache. Bei 42 Laeufen die Woche ist das der groesste
-      #  Einzelposten, den man streichen kann, ohne etwas aufzugeben.
       #
       #  Gearbeitet wird in RUNNER_TEMP, nicht im Arbeitsverzeichnis: Der
       #  Rettungsschritt am Ende committet, was im Baum liegt - Hilfsdateien
@@ -167,6 +163,7 @@ jobs:
           #  Ohne Label ist der Standard jetzt Sonnet mit hohem Aufwand; wer mehr
           #  will, setzt ein Label. Welche Fassung die Versionslabel "4" und "5"
           #  bedeuten, steht in modellwahl.py und wird DORT nachgezogen.
+          #
           #  Im agent-Modus setzt die Action WEDER einen permission-mode NOCH
           #  erlaubte Werkzeuge - und im Headless-Betrieb gibt es niemanden,
           #  der eine Rueckfrage beantwortet, also gilt alles Nichterlaubte als
@@ -271,12 +268,16 @@ jobs:
 
             Es ist EIN Kommentar, der fortgeschrieben wird. Bearbeite ihn:
 
-                gh api repos/$GITHUB_REPOSITORY/issues/comments/<id> --jq .body > k.md
-                # k.md ergaenzen oder kuerzen - JEDE Zeile beginnt mit "> ",
+                K=$RUNNER_TEMP/kommentar.md
+                gh api repos/$GITHUB_REPOSITORY/issues/comments/<id> --jq .body > $K
+                # $K ergaenzen oder kuerzen - JEDE Zeile beginnt mit "> ",
                 # leere Zeilen mit ">" allein, sonst bricht das Blockzitat auf.
                 # Die erste Zeile "<!-- lauf-fortschritt -->" MUSS stehen bleiben,
                 # sonst findet der naechste Lauf den Kommentar nicht wieder.
-                gh api --method PATCH                   repos/$GITHUB_REPOSITORY/issues/comments/<id> -F body=@k.md
+                gh api --method PATCH repos/$GITHUB_REPOSITORY/issues/comments/<id> -F body=@$K
+
+            In RUNNER_TEMP, nicht im Arbeitsverzeichnis: Dein eigenes
+            "git add -A" wuerde die Datei sonst mit in den Commit nehmen.
 
             Leg dafuer KEINEN neuen Kommentar an. Ein Vorgang mit zwoelf
             Statusmeldungen ist unlesbar - und das ist er dann fuer den

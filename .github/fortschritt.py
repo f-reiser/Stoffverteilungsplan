@@ -26,6 +26,7 @@ import io
 import json
 import os
 import subprocess
+import tempfile
 import sys
 
 #  Woran der Kommentar wiedergefunden wird. Unsichtbar im gerenderten Markdown,
@@ -62,11 +63,28 @@ def finde(repo, nr):
     return None, None
 
 
+def als_datei(inhalt):
+    """Schreibt den Rumpf in eine Datei ausserhalb des Arbeitsverzeichnisses.
+
+    Nicht ins Arbeitsverzeichnis, weil der Rettungsschritt des Workflows
+    committet, was im Baum liegt. Hier haelt zwar die Whitelist-.gitignore
+    dagegen - aber dieses Skript soll in jedem Repository laufen, und anderswo
+    landete die Datei im Commit.
+    """
+    f = tempfile.NamedTemporaryFile("w", suffix=".json", encoding="utf-8",
+                                    newline="", delete=False)
+    with f:
+        json.dump({"body": inhalt}, f)
+    return f.name
+
+
 def schreibe(repo, kid, body):
-    with io.open("body.json", "w", encoding="utf-8", newline="") as f:
-        json.dump({"body": body}, f)
-    gh("api", "--method", "PATCH", "repos/%s/issues/comments/%s" % (repo, kid),
-       "--input", "body.json")
+    pfad = als_datei(body)
+    try:
+        gh("api", "--method", "PATCH", "repos/%s/issues/comments/%s" % (repo, kid),
+           "--input", pfad)
+    finally:
+        os.unlink(pfad)
 
 
 def anlegen(repo, nr, lauf_url, branch):
@@ -74,11 +92,12 @@ def anlegen(repo, nr, lauf_url, branch):
     zeile = "Lauf [%s](%s) hat uebernommen, Branch `%s`." % (
         os.environ.get("GITHUB_RUN_ID", "?"), lauf_url, branch)
     if kid is None:
-        body = KOPF + chr(10) + ">" + chr(10) + als_zitat(zeile)
-        with io.open("body.json", "w", encoding="utf-8", newline="") as f:
-            json.dump({"body": body}, f)
-        roh = gh("api", "--method", "POST",
-                 "repos/%s/issues/%s/comments" % (repo, nr), "--input", "body.json")
+        pfad = als_datei(KOPF + chr(10) + ">" + chr(10) + als_zitat(zeile))
+        try:
+            roh = gh("api", "--method", "POST",
+                     "repos/%s/issues/%s/comments" % (repo, nr), "--input", pfad)
+        finally:
+            os.unlink(pfad)
         kid = json.loads(roh)["id"]
     else:
         schreibe(repo, kid, body.rstrip(chr(10)) + chr(10) + als_zitat(zeile))
