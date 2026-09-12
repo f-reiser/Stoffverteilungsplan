@@ -75,7 +75,26 @@ jobs:
           gh api --paginate "repos/$GITHUB_REPOSITORY/branches" \
             --jq '.[].name' 2>/dev/null > branches.txt || true
 
+          #  Die Label je Vorgang - aus ihnen bestimmt der naechste Schritt
+          #  Modell und Aufwand. Beschraenkt auf die Vorgaenge mit
+          #  Auftragslabel: Was dieser Lauf nicht anfasst, darf ihn auch nicht
+          #  teurer machen.
+          for typ in issue pr; do
+            gh "$typ" list --state open --limit 100 --json number,labels \
+              --jq '.[] | [(.number|tostring), ([.labels[].name]|join(","))] | @tsv' \
+              2>/dev/null || true
+          done | sort -u > alle_labels.txt
+          awk -F'\t' 'NR==FNR{n[$1];next} ($1 in n)' \
+            nummern.txt alle_labels.txt > labels.txt
+
           python3 .github/zuordnung.py
+
+      #  Welches Modell und welcher Aufwand - aus den Labels, nach festen Regeln.
+      #  Das MUSS hier stehen und nicht im Prompt: Ein Lauf kann sein eigenes
+      #  Modell nicht mehr waehlen, wenn er schon laeuft.
+      - id: modell
+        if: steps.vorpruefung.outputs.offen != '0'
+        run: python3 .github/modellwahl.py
 
       #  id wieder da: Der letzte Schritt liest die strukturierte Ausgabe.
       - id: claude
@@ -85,12 +104,13 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: "https://github.com/f-reiser/claude-skills.git"
           plugins: "reiser-workflow@reiser-skills"
-          #  "opus" ist der Alias auf das JEWEILS neueste Opus-Modell, nicht
-          #  auf eine feste Fassung. Das ist Absicht und setzt die Regel des
-          #  Nutzers um: Beim Codieren immer das beste Modell, das sein Abo
-          #  ohne Zusatzguthaben hergibt - ohne dass jemand daran denken
-          #  muss. Kommt einmal ein besseres Modell ausserhalb der
-          #  Opus-Reihe, ist HIER die Stelle, die nachgezogen wird.
+          #  Modell und Aufwand kommen aus .github/modellwahl.py, gespeist aus den
+          #  Steuerlabeln der offenen Vorgaenge. Frueher stand hier fest "opus" mit
+          #  hohem Aufwand - jeder Lauf also zum Hoechstpreis, auch der, der eine
+          #  Zeile Doku aendert. Das hat regelmaessig das Nutzungslimit geleert.
+          #  Ohne Label ist der Standard jetzt Sonnet mit hohem Aufwand; wer mehr
+          #  will, setzt ein Label. Welche Fassung die Versionslabel "4" und "5"
+          #  bedeuten, steht in modellwahl.py und wird DORT nachgezogen.
           #  Im agent-Modus setzt die Action WEDER einen permission-mode NOCH
           #  erlaubte Werkzeuge - und im Headless-Betrieb gibt es niemanden,
           #  der eine Rueckfrage beantwortet, also gilt alles Nichterlaubte als
@@ -107,8 +127,8 @@ jobs:
           #  Angabe, welche Skills gegolten haben, nur Prosa im Log - und bei
           #  42 Laeufen die Woche liest die niemand.
           claude_args: |
-            --model opus
-            --effort high
+            --model ${{ steps.modell.outputs.modell }}
+            --effort ${{ steps.modell.outputs.aufwand }}
             #  Der zweite Testlauf lief bei 80 Runden aus, nachdem er einen
             #  Branch angelegt und einen Commit geschrieben hatte. Es fehlte
             #  der ganze Abschluss: pushen, CI abwarten, Gegenlese,
