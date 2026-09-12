@@ -22,6 +22,7 @@ import io
 import json
 import os
 import subprocess
+import tempfile
 import sys
 
 #  Nur Felder, die die Ergebnismeldung des CLI wirklich fuehrt
@@ -194,11 +195,18 @@ def main():
                                    repo, os.environ.get("GITHUB_RUN_ID", "")),
         int(wanduhr) if wanduhr.isdigit() else None))
 
-    with io.open("abschluss.json", "w", encoding="utf-8", newline="") as f:
+    #  Ausserhalb des Arbeitsverzeichnisses, damit der Rettungsschritt des
+    #  Workflows die Datei nicht mitcommittet.
+    f = tempfile.NamedTemporaryFile("w", suffix=".json", encoding="utf-8",
+                                    newline="", delete=False)
+    with f:
         json.dump({"body": text}, f)
-    subprocess.run(["gh", "api", "--method", "POST",
-                    "repos/%s/issues/%s/comments" % (repo, nr),
-                    "--input", "abschluss.json"], check=True)
+    try:
+        subprocess.run(["gh", "api", "--method", "POST",
+                        "repos/%s/issues/%s/comments" % (repo, nr),
+                        "--input", f.name], check=True)
+    finally:
+        os.unlink(f.name)
     print(text)
     return 0
 
