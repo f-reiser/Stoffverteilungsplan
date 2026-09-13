@@ -18,15 +18,15 @@ name: Label-Waechter
 # GEPRUEFT WIRD DIE BERECHTIGUNG, NICHT DER NAME
 # Frueher stand hier ein Kontoname. Das war doppelt schlecht: Es band eine
 # projektunabhaengige Regel an eine Person, und es machte die Datei
-# unbrauchbar fuer jedes andere Repository. Jetzt fragt sie GitHub, wer
-# Admin ist - dieselbe Datei passt damit ueberall hin.
+# unbrauchbar fuer jedes andere Repository. Jetzt fragt sie GitHub nach der
+# Rolle (Admin oder Maintainer) - dieselbe Datei passt damit ueberall hin.
 
 on:
   issues:
     types: [labeled]
   #  pull_request_target statt pull_request: Bei einem Pull Request aus einem
   #  Fork bekaeme pull_request nur einen Lesetoken und koennte das Label nicht
-  #  wieder abnehmen. Ausgecheckt wird hier nichts, deshalb ist das gefahrlos.
+  #  wieder abnehmen.
   pull_request_target:
     types: [labeled]
 
@@ -39,6 +39,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      #  Ohne "ref" checkt das den Commit aus, der den Lauf ausgeloest hat -
+      #  bei pull_request_target ist das der Stand des BASISBRANCH (github.sha),
+      #  nicht der Kopf des Pull Request. Der Code eines fremden Forks kommt
+      #  also nie auf diesen Runner, obwohl der Token Schreibrechte hat - genau
+      #  das ist der sichere Gebrauch von pull_request_target. Ein "ref:" mit
+      #  dem PR-Kopf haette das ausgehebelt.
+      - uses: actions/checkout@v6
+
       #  Die Liste steht genau EINMAL. Sie zusaetzlich in ein "if:" des Jobs zu
       #  schreiben wuerde ein paar Sekunden Runnerzeit sparen und dafuer zwei
       #  Fassungen erzeugen, die auseinanderlaufen koennen - der schlechtere
@@ -47,7 +55,7 @@ jobs:
       #  NICHT geschuetzt ist "GegenleseBefund": Das setzt Claude selbst, wenn
       #  eine Gegenlese etwas gefunden hat. Die Namen liegen dicht beieinander -
       #  geschuetzt ist der Auftrag, nicht der Befund.
-      - name: Label zuruecknehmen, wenn es nicht vom Admin kam
+      - name: Label zuruecknehmen, wenn es nicht von Admin oder Maintainer kam
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -76,14 +84,16 @@ jobs:
           fi
 
           #  404 heisst: kein Collaborator (etwa "github-actions[bot]"). Das ist
-          #  kein Fehler, sondern die Antwort "kein Admin" - deshalb auf leer
-          #  zurueckfallen statt abzubrechen.
+          #  kein Fehler, sondern die Antwort "keine Berechtigung" - deshalb auf
+          #  leer zurueckfallen statt abzubrechen.
           RECHT=$(gh api "repos/$REPO/collaborators/$WER/permission" \
                     --jq .permission 2>/dev/null || true)
           echo "$WER hat Recht: ${RECHT:-keines}"
 
-          if [ "$RECHT" = "admin" ]; then
-            echo "Admin - Label bleibt."
+          #  Admin ODER Maintainer duerfen die Steuerlabel setzen, Write nicht -
+          #  siehe .github/berechtigt.py fuer die Begruendung und den Selbsttest.
+          if python3 "$GITHUB_WORKSPACE/.github/berechtigt.py" "$RECHT"; then
+            echo "Berechtigt - Label bleibt."
             exit 0
           fi
 
@@ -92,7 +102,7 @@ jobs:
           #  Format einfach gequotet: Der Text enthaelt Backticks, und in
           #  doppelten Anfuehrungszeichen wuerde die Shell daraus
           #  Kommandosubstitution machen.
-          printf 'Das Label `%s` wurde von `%s` gesetzt und automatisch wieder entfernt.\n\n`%s` steuert die Automatik und darf ausschliesslich von einem Konto mit Admin-Recht auf diesem Repository vergeben werden. Durchgesetzt wird das von `.github/workflows/label-waechter.yml`.\n\nIst der Auftrag berechtigt, setzt ihn der Nutzer selbst.\n' \
+          printf 'Das Label `%s` wurde von `%s` gesetzt und automatisch wieder entfernt.\n\n`%s` steuert die Automatik und darf ausschliesslich von einem Konto mit Admin- oder Maintainer-Recht auf diesem Repository vergeben werden. Durchgesetzt wird das von `.github/workflows/label-waechter.yml`.\n\nIst der Auftrag berechtigt, setzt ihn der Nutzer selbst.\n' \
             "$LABEL" "$WER" "$LABEL" > "$RUNNER_TEMP/kommentar.md"
 
           gh api --method POST "repos/$REPO/issues/$NR/comments" \
