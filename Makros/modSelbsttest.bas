@@ -99,6 +99,7 @@ Public Sub Selbsttest()
     T8_Kopf ws
     T9_Fokus ws
     T10_Uebernahme ws
+    T11_WenigeZeilen ws
 
     modWochenplan.SetQuiet False
 
@@ -1155,6 +1156,122 @@ Private Sub T10_Uebernahme(ByVal ws As Worksheet)
     Kill tmp
     On Error GoTo 0
     Chk "temporaere Quelldatei aufgeraeumt", (Len(Dir$(tmp)) = 0)
+End Sub
+
+
+'=====================================================================
+'  11  Wochenplan neu aufbauen aus einer fast leeren Mappe (#64)
+'  ------------------------------------------------------------------
+'  Reproduziert den gedachten Workflow "erst Lernbereiche pflegen, dann
+'  zum ersten Mal Wochenplan neu aufbauen": der Wochenplan wird auf eine
+'  einzige, leere Planzeile zurueckgestutzt - Lernbereiche und
+'  Einstellungen bleiben unangetastet -, dann der Knopf gedrueckt, den
+'  ein Anwender in dieser Lage druecken wuerde.
+'
+'  Laeuft GANZ AM ENDE, nach Abschnitt 10: sichert die Mappe vorher wie
+'  dort und baut sie danach ueber denselben Weg wieder auf. Bricht der
+'  Abschnitt ab, bleibt die gesicherte Kopie liegen (Pfad im Bericht) -
+'  dieselbe Begruendung wie vor T10_Uebernahme.
+'=====================================================================
+Private Sub T11_WenigeZeilen(ByVal ws As Worksheet)
+    Dim zl As Worksheet
+    Dim tmp As String, altName As String
+    Dim sollPlan() As String, nSollPlan As Long
+    Dim cr() As Long, n As Long, i As Long, lastRow As Long, erste As Long
+    Dim sollWochen As Long
+    Dim nPlan As Long, nLb As Long, nWo As Long, nFer As Long
+    Dim abw As Long, ersteAbw As String
+
+    Abschnitt "11  Wochenplan neu aufbauen aus einer fast leeren Mappe"
+
+    Set zl = modWochenplan.LbSheet()
+    If zl Is Nothing Then
+        Chk "Blatt " & LB_SHEET & " vorhanden", False
+        Exit Sub
+    End If
+
+    erste = modWochenplan.WP_FIRST_ROW()
+    lastRow = modWochenplan.PlanLastRow(ws)
+    n = modWochenplan.ContentRows(ws, lastRow, cr)
+    If n < 2 Then
+        Notiz "Uebersprungen - schon jetzt hoechstens eine Planzeile."
+        Exit Sub
+    End If
+
+    sollWochen = modKalender.VerfuegbareWochenAnzahl()
+    If sollWochen < 2 Then
+        Notiz "Uebersprungen - weniger als zwei verfuegbare Unterrichtswochen."
+        Exit Sub
+    End If
+
+    ' --- 1. Sollzustand merken ---------------------------------------
+    ReDim sollPlan(1 To n)
+    For i = 1 To n
+        sollPlan(i) = PlanZeileText(ws, cr(i))
+    Next i
+    nSollPlan = n
+
+    ' --- 2. Kopie anlegen ----------------------------------------------
+    tmp = TempPfad("WenigeZeilen_Quelle.xlsm")
+    On Error Resume Next
+    Kill tmp
+    Err.Clear
+    ThisWorkbook.SaveCopyAs tmp
+    If Err.Number <> 0 Then
+        Chk "Kopie als Sicherung anlegen", False, "Fehler " & Err.Number & ": " & Err.Description
+        Err.Clear
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+    Chk "Kopie als Sicherung angelegt", (Len(Dir$(tmp)) > 0), tmp
+
+    ' --- 3. Wochenplan auf eine leere Zeile stutzen - Lernbereiche und
+    '        Einstellungen bleiben, wie sie sind ------------------------
+    modWochenplan.FastOn ws
+    If lastRow > erste Then ws.Rows(erste + 1 & ":" & lastRow).Delete Shift:=xlUp
+    ws.Range(ws.Cells(erste, "E"), ws.Cells(erste, "M")).ClearContents
+    modWochenplan.FastOff
+
+    ' --- 4. Der Knopf, den ein Anwender jetzt druecken wuerde ----------
+    modWochenplan.ClearLastError
+    modKalender.UW_Und_Ferien_Generieren
+    Chk "Erzeugen ohne Fehlermeldung", modWochenplan.LastError() = "", _
+        modWochenplan.LastError()
+
+    lastRow = modWochenplan.PlanLastRow(ws)
+    n = modWochenplan.ContentRows(ws, lastRow, cr)
+    Chk "Fuer jede verfuegbare Unterrichtswoche ist eine Planzeile entstanden", _
+        n >= sollWochen, _
+        n & " Planzeile(n), " & sollWochen & " Unterrichtswoche(n) verfuegbar"
+
+    ' --- 5. Wiederherstellen, derselbe Weg wie in Abschnitt 10 ---------
+    MappeLeeren ws, zl
+    nPlan = modUebernahme.UebernahmeAusfuehren(tmp, altName, nLb, nWo, nFer)
+    Chk "Wiederherstellung ohne Fehler", (nPlan >= 0), "Rueckgabe " & nPlan
+    If nPlan < 0 Then Exit Sub
+
+    modSteuerung.Setup_Stoffverteilungsplan
+    modKalender.UW_Und_Ferien_Generieren
+
+    lastRow = modWochenplan.PlanLastRow(ws)
+    n = modWochenplan.ContentRows(ws, lastRow, cr)
+    abw = 0: ersteAbw = ""
+    For i = 1 To nSollPlan
+        If i > n Then
+            abw = abw + 1
+            If ersteAbw = "" Then ersteAbw = "Zeile " & i & " fehlt ganz"
+        ElseIf PlanZeileText(ws, cr(i)) <> sollPlan(i) Then
+            abw = abw + 1
+            If ersteAbw = "" Then ersteAbw = "Zeile " & i
+        End If
+    Next i
+    Chk "Nach der Wiederherstellung wieder alle " & nSollPlan & " Planzeilen", _
+        (abw = 0), abw & " Abweichung(en); " & ersteAbw
+
+    On Error Resume Next
+    Kill tmp
+    On Error GoTo 0
 End Sub
 
 
