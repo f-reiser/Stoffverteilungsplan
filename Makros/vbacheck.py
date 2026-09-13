@@ -216,27 +216,22 @@ def check(path):
 
     # --- 3. FormatConditions ---------------------------------------
     # Lesen der ANZAHL ist seit 13.09.2026 erlaubt (Issue #31): die
-    # Warnung vor einem zerlegten Farbbereich braucht sie.
+    # Warnung vor einem zerlegten Farbbereich braucht sie. Alles andere
+    # bleibt verboten - Add, Delete, ModifyAppliesToRange und auch das
+    # Auslesen einer einzelnen Regel, denn dabei stuerzte Excel ab.
     #
-    # Seit PR #59 ("Weg 2") zusaetzlich erlaubt: AppliesTo.Areas.Count
-    # einer EINZELNEN Regel ueber einen festen, literalen Index - das
-    # erkennt genau den Flaechen-Zerfall, den die Anzahl allein nicht
-    # sieht. Der Index muss eine Zahl sein, keine Variable: eine
-    # Schleife ueber die Regeln bleibt verboten.
-    #
-    # Alles andere bleibt verboten - Add, Delete, ModifyAppliesToRange,
-    # Formula1 und jeder Zugriff mit einem nicht-literalen Index, denn
-    # beim Auslesen einer einzelnen Regel stuerzte Excel schon ab.
+    # PR #59 ("Weg 2") hat testweise zusaetzlich AppliesTo.Areas.Count
+    # einer einzelnen Regel gelesen: das crasht NICHT (bestaetigt
+    # 13.09.2026), wieder entfernt, weil der Flaechen-Zerfall ein
+    # normales Nebenprodukt des Zeilen-Einfuegens ist und keinen Fehler
+    # anzeigt - siehe Doku/Fallstricke.md. Vor einem neuen Versuch in
+    # diese Richtung dort nachlesen.
     nur_count = re.compile(r"formatconditions\s*\.\s*count")
-    einzelne_flaeche = re.compile(
-        r"formatconditions\s*\(\s*\d+\s*\)\s*\.\s*appliesto\s*\.\s*areas\s*\.\s*count")
     for n, l in lines:
         low = l.lower()
-        erlaubt = len(nur_count.findall(low)) + len(einzelne_flaeche.findall(low))
-        if low.count("formatcondition") > erlaubt:
+        if low.count("formatcondition") > len(nur_count.findall(low)):
             problems.append(
-                f"Zeile {n}: Zugriff auf FormatConditions ausser .Count oder "
-                f".AppliesTo.Areas.Count (fester Index) - verboten")
+                f"Zeile {n}: Zugriff auf FormatConditions ausser .Count - verboten")
 
 
     # --- 5. Verbundene Zellen: Vollbereich quer durch B..M ----------
@@ -547,21 +542,6 @@ Public Sub Mut_CF_Lesen()
     Dim ws As Worksheet
     Dim s As String
     s = ws.Cells.FormatConditions(1).Formula1
-End Sub
-""")),
-
-    # Die Ausnahme fuer AppliesTo.Areas.Count (PR #59, "Weg 2") gilt nur
-    # fuer einen festen Index - eine Schleife ueber die Regeln waere die
-    # Iteration, die weiterhin verboten bleibt.
-    ("Regelzugriff ueber einen Schleifenindex statt eines festen Index",
-     "FormatConditions",
-     lambda t: _anhaengen(t, """
-Public Sub Mut_CF_Schleife()
-    Dim ws As Worksheet
-    Dim i As Long, n As Long
-    For i = 1 To 3
-        n = ws.Cells.FormatConditions(i).AppliesTo.Areas.Count
-    Next i
 End Sub
 """)),
 

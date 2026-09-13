@@ -35,9 +35,10 @@ Option Private Module
 
 Public Const CTRL_SHEET As String = "Steuerung"
 
-' Zellen mit den beiden Statuszeilen
+' Zellen mit den Statuszeilen
 Public Const CTRL_STATUS_CODE   As String = "B4"
 Public Const CTRL_STATUS_SCHUTZ As String = "B5"
+Public Const CTRL_STATUS_WARNUNG As String = "B6"
 
 '  Beschriftungen der beiden Fixier-Schaltflaechen. Sie dienen
 '  gleichzeitig als Wiedererkennung (AlternativeText der Form), wenn
@@ -184,6 +185,21 @@ Private Sub EnsureSteuerung()
         .Font.Color = modWochenplan.FARBE_LEISE
     End With
 
+    '  Kurzhinweis auf eine Auffaelligkeit, ohne die Details: die
+    '  stehen schon in der Warnzeile bei "Einrichtung / Reparatur",
+    '  die man leicht uebersieht. modPruefung.WarnungAnzeigen fuellt
+    '  und leert diese Zeile - hier nur anlegen und benennen, damit sie
+    '  ohne Zeilennummer wiederzufinden ist.
+    With ws.Range(CTRL_STATUS_WARNUNG)
+        .Value = ""
+        .Font.Bold = True
+        .Font.Color = RGB(186, 74, 74)
+    End With
+    On Error Resume Next
+    ThisWorkbook.Names.Add Name:=modPruefung.PRF_ZELLE_KURZ_NAME, _
+                           RefersTo:="=" & ws.Name & "!" & ws.Range(CTRL_STATUS_WARNUNG).Address(True, True)
+    On Error GoTo 0
+
     ' ---------------- Alltag -----------------------------------------
     r = 7
     Ueberschrift ws, r, "Im Alltag"
@@ -269,7 +285,7 @@ Private Sub EnsureSteuerung()
               "die Summenzeile in """ & LB_SHEET & """ neu auf und setzt den " & _
               "Blattschutz frisch. Für den Spezialfall, dass etwas verrutscht ist oder " & _
               "eine Fehlermeldung darum bittet."
-    r = r + 2
+    r = r + 1
 
     PruefHinweisZelle ws, r
     r = r + 2
