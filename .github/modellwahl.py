@@ -21,6 +21,8 @@ import io
 import os
 import sys
 
+import scoped_labels
+
 #  Die Aufwandsstufen der CLI ("claude --help": low, medium, high, xhigh, max) unter
 #  den deutschen Labelnamen, die im Repository vergeben werden.
 AUFWAND = {
@@ -43,8 +45,15 @@ MODELLE = {
     ("Sonnet", "5"): "claude-sonnet-5",
 }
 
-MODELL_LABEL = ("Opus", "Sonnet")
-VERSION_LABEL = ("4", "5")
+#  Scoped Labels nach dem Vorbild von GitLab: "Scope::Wert" (erkannt von
+#  scoped_labels.py). Zwei Label mit gleichem Scope schliessen einander aus
+#  (siehe _eindeutig). Anders als vorher steht nirgends mehr eine Liste,
+#  WELCHE Werte zu einem Scope gehoeren - das Trennzeichen im Labelnamen sagt
+#  es. Ein neuer Aufwandswert braucht dadurch keine Aenderung mehr an dieser
+#  Datei, nur einen neuen Eintrag in AUFWAND.
+MODELL_SCOPE = "Modell"
+VERSION_SCOPE = "v"
+AUFWAND_SCOPE = "Aufwand"
 
 #  Regel 1 des Auftrags, zu Ende gedacht: Der Runner kann die Komplexitaet eines
 #  Vorgangs nicht beurteilen - er hat den Text nicht gelesen. Er ist also immer der
@@ -71,42 +80,43 @@ def lies(pfad):
     return vorgaenge
 
 
-def _eindeutig(vorgaenge, erlaubt, was):
+def _eindeutig(vorgaenge, scope, was):
     """(wert, warnungen, war_gesetzt)
 
-    wert ist None, wenn nichts gesetzt war ODER die Vorgaben sich widersprechen -
-    war_gesetzt unterscheidet die beiden Faelle. Ohne diese Unterscheidung wuerde ein
-    widerspruechliches Modell-Label zusaetzlich als "kein Modell-Label" gemeldet, und
-    die zweite Meldung widerspraeche der ersten.
+    wert ist der Teil hinter "Scope::", None wenn nichts gesetzt war ODER die
+    Vorgaben sich widersprechen - war_gesetzt unterscheidet die beiden Faelle. Ohne
+    diese Unterscheidung wuerde ein widerspruechliches Modell-Label zusaetzlich als
+    "kein Modell-Label" gemeldet, und die zweite Meldung widerspraeche der ersten.
     """
     warnungen = []
     gesehen = set()
     streit = False
     for nr, labels in vorgaenge:
-        treffer = sorted({x for x in labels if x in erlaubt})
+        treffer = sorted({x for x in labels if scoped_labels.scope(x) == scope})
         if len(treffer) > 1:
             streit = True
             warnungen.append("Vorgang %s traegt %s gleichzeitig: %s. Die Labels "
                              "schliessen einander aus."
                              % (nr, was, " und ".join(treffer)))
-        gesehen.update(treffer)
+        gesehen.update(scoped_labels.wert(x) for x in treffer)
 
     if streit:
         #  Die Ursache ist schon benannt. Die Meldung unten waere dieselbe Sache
         #  ein zweites Mal, nur unscharf formuliert.
         return None, warnungen, True
     if len(gesehen) > 1:
+        anzeige = sorted(scope + "::" + w for w in gesehen)
         warnungen.append("Die offenen Vorgaenge verlangen verschiedene %s (%s). Ein "
-                         "Lauf hat nur eines." % (was, ", ".join(sorted(gesehen))))
+                         "Lauf hat nur eines." % (was, ", ".join(anzeige)))
         return None, warnungen, True
     return (gesehen.pop() if gesehen else None), warnungen, bool(gesehen)
 
 
 def waehle(vorgaenge):
     """(modell, aufwand, warnungen)"""
-    modell, w1, modell_gesetzt = _eindeutig(vorgaenge, MODELL_LABEL, "Modell-Label")
-    version, w2, _ = _eindeutig(vorgaenge, VERSION_LABEL, "Versions-Label")
-    stufe, w3, _ = _eindeutig(vorgaenge, tuple(AUFWAND), "Aufwands-Label")
+    modell, w1, modell_gesetzt = _eindeutig(vorgaenge, MODELL_SCOPE, "Modell-Label")
+    version, w2, _ = _eindeutig(vorgaenge, VERSION_SCOPE, "Versions-Label")
+    stufe, w3, _ = _eindeutig(vorgaenge, AUFWAND_SCOPE, "Aufwands-Label")
     warnungen = w1 + w2 + w3
 
     if modell is None:
@@ -119,7 +129,18 @@ def waehle(vorgaenge):
                              "keines fuer das Modell. Beide werden verworfen.")
         return STANDARD_MODELL, STANDARD_AUFWAND, warnungen
 
-    return MODELLE[(modell, version)], AUFWAND.get(stufe, "high"), warnungen
+    ziel = MODELLE.get((modell, version))
+    if ziel is None:
+        #  Scoped Labels erlauben jeden Wert hinter "Modell::" bzw. "v::" - anders
+        #  als die frueheren, fest aufgezaehlten Label kann das auf eine
+        #  Kombination zeigen, die MODELLE nicht kennt. Abbrechen waere hier
+        #  falsch: Regel 1 gilt auch fuer einen Tippfehler im Label.
+        warnungen.append("Unbekanntes Modell oder unbekannte Version: Modell::%s%s. "
+                         "Standard wird verwendet."
+                         % (modell, " v::" + version if version else ""))
+        return STANDARD_MODELL, STANDARD_AUFWAND, warnungen
+
+    return ziel, AUFWAND.get(stufe, "high"), warnungen
 
 
 def main():
@@ -171,36 +192,41 @@ def selbsttest():
     pruefe("nur fremde Label", v(["Einarbeiten", "Gegenlese"]), "sonnet", "high")
 
     #  Regel 3: Modell ohne Version - der Alias, damit es nicht veraltet
-    pruefe("Opus ohne Version", v(["Opus"]), "opus", "high")
-    pruefe("Sonnet ohne Version", v(["Sonnet"]), "sonnet", "high")
+    pruefe("Opus ohne Version", v(["Modell::Opus"]), "opus", "high")
+    pruefe("Sonnet ohne Version", v(["Modell::Sonnet"]), "sonnet", "high")
 
     #  Regel 6: Version gesetzt - neueste Variante dieser Reihe, fest benannt
-    pruefe("Opus 4", v(["Opus", "4"]), "claude-opus-4-8", "high")
-    pruefe("Opus 5", v(["Opus", "5"]), "claude-opus-5", "high")
-    pruefe("Sonnet 4", v(["Sonnet", "4"]), "claude-sonnet-4-6", "high")
-    pruefe("Sonnet 5", v(["Sonnet", "5"]), "claude-sonnet-5", "high")
+    pruefe("Opus 4", v(["Modell::Opus", "v::4"]), "claude-opus-4-8", "high")
+    pruefe("Opus 5", v(["Modell::Opus", "v::5"]), "claude-opus-5", "high")
+    pruefe("Sonnet 4", v(["Modell::Sonnet", "v::4"]), "claude-sonnet-4-6", "high")
+    pruefe("Sonnet 5", v(["Modell::Sonnet", "v::5"]), "claude-sonnet-5", "high")
 
-    #  Regel 2: kombinierbar ueber die Gruppen hinweg
-    pruefe("Opus 4 niedrig", v(["Opus", "4", "niedrig"]), "claude-opus-4-8", "low")
-    pruefe("Sonnet maximal", v(["Sonnet", "maximal"]), "sonnet", "max")
-    pruefe("Opus extra hoch", v(["Opus", "extra hoch"]), "opus", "xhigh")
-    pruefe("Sonnet 5 mittel", v(["Sonnet", "5", "mittel"]), "claude-sonnet-5", "medium")
+    #  Regel 2: kombinierbar ueber die Scopes hinweg
+    pruefe("Opus 4 niedrig", v(["Modell::Opus", "v::4", "Aufwand::niedrig"]),
+           "claude-opus-4-8", "low")
+    pruefe("Sonnet maximal", v(["Modell::Sonnet", "Aufwand::maximal"]), "sonnet", "max")
+    pruefe("Opus extra hoch", v(["Modell::Opus", "Aufwand::extra hoch"]), "opus", "xhigh")
+    pruefe("Sonnet 5 mittel", v(["Modell::Sonnet", "v::5", "Aufwand::mittel"]),
+           "claude-sonnet-5", "medium")
 
     #  Regel 4: Aufwand fehlt - "hoch"
-    pruefe("Aufwand fehlt", v(["Opus", "5"]), "claude-opus-5", "high")
+    pruefe("Aufwand fehlt", v(["Modell::Opus", "v::5"]), "claude-opus-5", "high")
 
-    #  Regel 2: innerhalb einer Gruppe nicht kombinierbar - Warnung, dann Regel 1
-    pruefe("Opus und Sonnet", v(["Opus", "Sonnet"]), "sonnet", "high",
+    #  Regel 2: innerhalb eines Scopes nicht kombinierbar - Warnung, dann Regel 1
+    pruefe("Opus und Sonnet", v(["Modell::Opus", "Modell::Sonnet"]), "sonnet", "high",
            "schliessen einander aus")
-    pruefe("4 und 5", v(["Opus", "4", "5"]), "opus", "high", "schliessen einander aus")
-    pruefe("niedrig und maximal", v(["Opus", "niedrig", "maximal"]), "opus", "high",
+    pruefe("4 und 5", v(["Modell::Opus", "v::4", "v::5"]), "opus", "high",
+           "schliessen einander aus")
+    pruefe("niedrig und maximal",
+           v(["Modell::Opus", "Aufwand::niedrig", "Aufwand::maximal"]), "opus", "high",
            "schliessen einander aus")
 
     #  Regel 5: Version oder Aufwand ohne Modell - Warnung, dann Regel 1.
-    #  Der Aufwand wird MIT verworfen; "niedrig" allein darf nicht durchschlagen.
-    pruefe("nur Version", v(["5"]), "sonnet", "high", "keines fuer das Modell")
-    pruefe("nur Aufwand", v(["niedrig"]), "sonnet", "high", "keines fuer das Modell")
-    pruefe("nur Version und Aufwand", v(["4", "maximal"]), "sonnet", "high",
+    #  Der Aufwand wird MIT verworfen; "Aufwand::niedrig" allein darf nicht durchschlagen.
+    pruefe("nur Version", v(["v::5"]), "sonnet", "high", "keines fuer das Modell")
+    pruefe("nur Aufwand", v(["Aufwand::niedrig"]), "sonnet", "high",
+           "keines fuer das Modell")
+    pruefe("nur Version und Aufwand", v(["v::4", "Aufwand::maximal"]), "sonnet", "high",
            "keines fuer das Modell")
 
     #  Widerspruch beim Modell darf NICHT zusaetzlich als "kein Modell-Label"
@@ -208,38 +234,48 @@ def selbsttest():
     def keine_meldung(vorgaenge, teil):
         return not any(teil in w for w in waehle(vorgaenge)[2])
 
-    if not keine_meldung(v(["Opus", "Sonnet", "maximal"]), "keines fuer das Modell"):
+    if not keine_meldung(v(["Modell::Opus", "Modell::Sonnet", "Aufwand::maximal"]),
+                          "keines fuer das Modell"):
         fehler.append("Widerspruch beim Modell wird zusaetzlich als fehlend gemeldet")
 
     #  Umgekehrt muss die Meldung kommen, wenn wirklich kein Modell dasteht.
-    if keine_meldung(v(["maximal"]), "keines fuer das Modell"):
+    if keine_meldung(v(["Aufwand::maximal"]), "keines fuer das Modell"):
         fehler.append("fehlendes Modell-Label wird nicht gemeldet")
 
     #  Mehrere Vorgaenge: gleiche Vorgabe traegt, widerspruechliche faellt auf Regel 1
     pruefe("zwei Vorgaenge, einer gelabelt",
-           v(["Opus", "5"], []), "claude-opus-5", "high")
+           v(["Modell::Opus", "v::5"], []), "claude-opus-5", "high")
     pruefe("zwei Vorgaenge, gleiche Vorgabe",
-           v(["Opus"], ["Opus", "niedrig"]), "opus", "low")
+           v(["Modell::Opus"], ["Modell::Opus", "Aufwand::niedrig"]), "opus", "low")
     pruefe("zwei Vorgaenge, verschiedene Modelle",
-           v(["Opus"], ["Sonnet"]), "sonnet", "high", "verschiedene Modell-Label")
+           v(["Modell::Opus"], ["Modell::Sonnet"]), "sonnet", "high",
+           "verschiedene Modell-Label")
     pruefe("zwei Vorgaenge, verschiedener Aufwand",
-           v(["Opus", "niedrig"], ["Opus", "maximal"]), "opus", "high",
-           "verschiedene Aufwands-Label")
+           v(["Modell::Opus", "Aufwand::niedrig"], ["Modell::Opus", "Aufwand::maximal"]),
+           "opus", "high", "verschiedene Aufwands-Label")
+
+    #  Scope ohne bekannten Wert: keine gepflegte Liste mehr, die das verhindern
+    #  koennte (das ist der Sinn scoped Labels) - also faengt das hier ab statt
+    #  mit einem KeyError abzubrechen.
+    pruefe("unbekannter Modellwert", v(["Modell::Haiku"]), "sonnet", "high",
+           "Unbekanntes Modell")
+    pruefe("unbekannte Modell-Version-Kombination", v(["Modell::Opus", "v::7"]),
+           "sonnet", "high", "Unbekanntes Modell")
 
     #  Das Einlesen: Tabulator trennt, Komma trennt, Leerraum stoert nicht
     import tempfile
     d = tempfile.mkdtemp()
     pfad = os.path.join(d, "labels.txt")
     io.open(pfad, "w", encoding="utf-8", newline="").write(
-        "31" + chr(9) + "Einarbeiten, Opus , 5" + chr(10) + chr(10) +
+        "31" + chr(9) + "Einarbeiten, Modell::Opus , v::5" + chr(10) + chr(10) +
         "30" + chr(9) + "" + chr(10))
     gelesen = lies(pfad)
-    if gelesen != [("31", ["Einarbeiten", "Opus", "5"]), ("30", [])]:
+    if gelesen != [("31", ["Einarbeiten", "Modell::Opus", "v::5"]), ("30", [])]:
         fehler.append("lies(): %r" % (gelesen,))
     if lies(os.path.join(d, "gibtsnicht.txt")) != []:
         fehler.append("fehlende Datei sollte [] geben")
 
-    gesamt = 28
+    gesamt = 30
     for f in fehler:
         print("FEHLER: " + f)
     print("%d von %d Pruefungen bestanden." % (gesamt - len(fehler), gesamt))

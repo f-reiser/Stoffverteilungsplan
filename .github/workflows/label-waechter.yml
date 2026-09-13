@@ -3,9 +3,11 @@ name: Label-Waechter
 # Einige Label sind Auftraege an die Automatik: "Einarbeiten" laesst den
 # Vier-Stunden-Lauf ein Issue umsetzen, "Untersuche" einen Bug nachstellen,
 # "Gegenlese" verlangt danach zusaetzlich eine fremde Gegenlese. Dazu kommen die
-# Steuerlabel fuer Modell, Version und Aufwand: Sie entscheiden, was ein Lauf
-# kostet. Wer sie vergeben darf, stand bisher nur als Konvention in den Skills -
-# und eine Konvention haelt niemanden auf.
+# Steuerlabel fuer Modell, Version und Aufwand als scoped Labels nach dem
+# Vorbild von GitLab ("Modell::Opus", "v::5", "Aufwand::hoch" - siehe
+# .github/geschuetzt.py). Sie entscheiden, was ein Lauf kostet. Wer sie
+# vergeben darf, stand bisher nur als Konvention in den Skills - und eine
+# Konvention haelt niemanden auf.
 #
 # Wer sie technisch setzen KANN, ist nicht die Oeffentlichkeit: Label vergeben
 # setzt mindestens Triage-Recht voraus, ein oeffentliches Repository gibt Fremden
@@ -47,14 +49,8 @@ jobs:
       #  dem PR-Kopf haette das ausgehebelt.
       - uses: actions/checkout@v6
 
-      #  Die Liste steht genau EINMAL. Sie zusaetzlich in ein "if:" des Jobs zu
-      #  schreiben wuerde ein paar Sekunden Runnerzeit sparen und dafuer zwei
-      #  Fassungen erzeugen, die auseinanderlaufen koennen - der schlechtere
-      #  Tausch, denn Label-Ereignisse sind selten.
-      #
-      #  NICHT geschuetzt ist "GegenleseBefund": Das setzt Claude selbst, wenn
-      #  eine Gegenlese etwas gefunden hat. Die Namen liegen dicht beieinander -
-      #  geschuetzt ist der Auftrag, nicht der Befund.
+      #  Was geschuetzt ist, steht nur noch in .github/geschuetzt.py - dort auch
+      #  begruendet, warum "GegenleseBefund" trotz Namensnaehe NICHT dazugehoert.
       - name: Label zuruecknehmen, wenn es nicht von Admin oder Maintainer kam
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -64,21 +60,8 @@ jobs:
           NR: ${{ github.event.issue.number || github.event.pull_request.number }}
           LABEL: ${{ github.event.label.name }}
           WER: ${{ github.event.sender.login }}
-          GESCHUETZT: |
-            Einarbeiten
-            Untersuche
-            Gegenlese
-            Opus
-            Sonnet
-            4
-            5
-            niedrig
-            mittel
-            hoch
-            extra hoch
-            maximal
         run: |
-          if ! printf '%s\n' "$GESCHUETZT" | grep -qxF "$LABEL"; then
+          if ! python3 "$GITHUB_WORKSPACE/.github/geschuetzt.py" "$LABEL"; then
             echo "$LABEL ist nicht geschuetzt - nichts zu tun."
             exit 0
           fi
