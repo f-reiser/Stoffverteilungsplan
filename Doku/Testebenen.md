@@ -49,11 +49,11 @@ und darunter, was **nicht** geprüft werden konnte.
 | # | Was | Aufruf | Umfang | Läuft in der CI |
 |---|---|---|---|---|
 | 1 | statische Prüfung der Module | `vbacheck.py mod*.bas` | 9 Regelgruppen | ja |
-| 1M | Mutationstest über Ebene 1 | `vbacheck.py --selbsttest mod*.bas` | 9 Mutationen | ja |
+| 1M | Mutationstest über Ebene 1 | `vbacheck.py --selbsttest mod*.bas` | 10 Mutationen | ja |
 | 2 | Abnahme fertiger `.xlsm` von außen | `pruefe_datei.py ../*.xlsm` | 7 Inhalts- + 7 Strukturregeln | ja¹ |
 | 3 | Mutationstest über Ebene 2 | `pruefe_datei.py --selbsttest` | 10 Mutationen | ja¹ |
-| 4 | `modSelbsttest.Selbsttest` in echtem Excel | Schaltfläche in der Mappe | 139 Chk-Aufrufe, 13 Abschnitte | **nein** — braucht Excel |
-| 5 | Mutationstest über Ebene 4 | Schaltfläche „Selbsttest prüfen" | 10 Mutationen | **nein** — braucht Excel |
+| 4 | `modSelbsttest.Selbsttest` in echtem Excel | Schaltfläche in der Mappe | 14 Abschnitte | **nein** — braucht Excel |
+| 5 | Mutationstest über Ebene 4 | Schaltfläche „Selbsttest prüfen" | 17 Mutationen | **nein** — braucht Excel |
 | 6 | Formelkonsistenz aller Planzeilen | `pruefe_formeln.py ../*.xlsm` | 12 Spalten, 4 Regeln | ja¹ |
 | 6M | Mutationstest über Ebene 6 | `pruefe_formeln.py --selbsttest` | 4 Mutationen | ja¹ |
 | 7 | Auslieferungsprüfung der Quelldateien | `pruefe_module.py mod*.bas *.txt` | 8 Kriterien je Datei | ja |
@@ -156,7 +156,7 @@ die Endung `.vorlage` hält sie aus jedem `mod*.bas`-Glob heraus.
 
 Regeln: (1) vor der ersten Prozedur nur Deklarationen, (1b) und danach keine modulweite
 Deklaration mehr, (2) Blockbalance, Sprungmarken je Prozedur gesammelt, (3) **Option
-Explicit JE PROZEDUR** — nicht global, (4) kein FormatConditions-Zugriff, (5)
+Explicit JE PROZEDUR** — nicht global, (4) kein FormatConditions-Zugriff außer `.Count`, (5)
 Office-Konstanten gegen eine explizite Liste, (6) `modXxx.Name` muss existieren UND dort
 Public sein, (7) Liste verbotener Aufrufe, (8) Merge-Sicherheit bei Bereichen quer durch
 B..M.

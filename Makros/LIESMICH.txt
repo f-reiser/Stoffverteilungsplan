@@ -33,6 +33,7 @@ Diese Anleitung steht nach dem Setup auch als Tabellenblatt
                       bzw. "VBA-Update" ist ENTFALLEN und wird beim
                       Einrichten geloescht)
   modUebernahme.bas   Umstieg: Daten aus einer aelteren Mappe holen
+  modPruefung.bas     Analyse der Mappe, meldet in die Warnzeile
   modSelbsttest.bas   Selbsttest (nur fuer die Entwicklung noetig)
 
   Wochenplan_Blattmodul.txt     -> Objekt "Tabelle1 (Wochenplan)"
@@ -384,6 +385,8 @@ Diese Anleitung steht nach dem Setup auch als Tabellenblatt
     "Update" angelegt, Stand der Anleitung verstellt, Blattschutz
     aufgehoben, Unterrichtswochen verdreht, Makro von einer
     Schaltflaeche genommen, zwei Schaltflaechen auf dasselbe Makro.
+    Seit 13.09.2026 dazu die Mutationen 11 bis 17 zu Abschnitt 1c
+    (Analyse der Mappe); ihre Namen stehen in MutName.
 
     ERSTER ECHTER LAUF (05.09.2026): 9 von 9 Mutationen erkannt - und
     die Ruecknahme von Mutation 9 schlug fehl. Ursache: Sabotage und
@@ -616,6 +619,31 @@ Diese Anleitung steht nach dem Setup auch als Tabellenblatt
       werden nachgezogen
  Den vollen Neuaufbau macht weiterhin alles, was die Struktur aendert
  (Einfuegen, Loeschen, Unterrichtswochen erzeugen).
+
+
+----------------------------------------------------------------------
+ ANALYSE DER MAPPE
+----------------------------------------------------------------------
+ modPruefung sieht nach, ob Formeln und Bezuege noch stimmen, und
+ schreibt das Ergebnis in eine Warnzeile unter "Einrichtung /
+ Reparatur" sowie in die Statusleiste. Aufgerufen beim Oeffnen der
+ Mappe und am Ende der Einrichtung.
+
+ ES REPARIERT NICHTS. Der Anwender soll erst seine Daten sichern
+ koennen - ein missglueckter Reparaturlauf kann schlimmer sein als der
+ gemeldete Zustand (Issue #31).
+
+ Geprueft wird: Fehlerwerte in allen Blaettern, fehlende und von den
+ uebrigen Zeilen abweichende Formeln, der Querbezug der Spalte U auf
+ die Lernbereiche, die Gueltigkeitsliste der Spalte K, Werte in K
+ ausserhalb der Stundenliste und die Reichweite der Farbregeln.
+
+ Von der bedingten Formatierung wird nur FormatConditions.Count
+ gelesen, und die Planzeilen werden untereinander verglichen statt
+ gegen eine feste Regelzahl: sieben der acht Regeln sind
+ x14-Erweiterungsregeln, und ob VBA die mitzaehlt, ist nirgends
+ verbrieft. Eine fest eingetragene Acht koennte auf einer gesunden
+ Mappe bei jedem Oeffnen Alarm schlagen.
 
 
 ----------------------------------------------------------------------

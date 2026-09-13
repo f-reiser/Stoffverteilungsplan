@@ -5,10 +5,23 @@ vermeidbar gewesen wäre. Ausführlicher, mit Codebeispielen, in `Makros/LIESMIC
 
 ## Excel-Objektmodell
 
-**Bedingte Formatierung wird per VBA GAR NICHT angefasst** — weder lesend noch
-schreibend. Kein `FormatConditions.Add`, kein `ModifyAppliesToRange`, keine Enumeration.
-Sieben der acht Regeln sind x14-Erweiterungsregeln; der Zugriff auf die klassische
-`FormatConditions`-Auflistung hat Excel am 31.08.2026 hart abstürzen lassen.
+**Bedingte Formatierung wird per VBA nur gezählt** — `FormatConditions.Count` und sonst
+nichts. Kein `FormatConditions.Add`, kein `ModifyAppliesToRange`, keine Enumeration, kein
+`Formula1`. Sieben der acht Regeln sind x14-Erweiterungsregeln; der Zugriff auf die
+klassische `FormatConditions`-Auflistung hat Excel am 31.08.2026 hart abstürzen lassen.
+Das Zählen ist seit dem 13.09.2026 frei (Issue #31): `modPruefung` erkennt daran, ob der
+Farbbereich noch alle Planzeilen erreicht.
+
+**Flächen-Zerfall einer Regel ist nur an einer Ferienzeile normal.** `.AppliesTo` einer
+Regel crasht nicht, wenn man sie liest (bestätigt, PR #59). Der in diesem Projekt
+verwendete Trick „Zeile kopieren, dann als kopierte Zellen einfügen" (siehe unten) dehnt
+die bedingte Formatierung zwar korrekt mit aus, lässt eine ursprünglich EINE
+zusammenhängende Fläche dabei aber an JEDER eingefügten Zeile in einen eigenen
+Teilbereich zerfallen — sichtbar im Dialog „Regeln verwalten" als lange Liste fast
+identischer Bereiche. Das passiert bei jeder Ferienzeile und ist normal, kein Fehler.
+Eine erste Fassung dieser Prüfung hat jeden Zerfall gemeldet und damit auf praktisch
+jeder echten, gesunden Mappe Fehlalarm geschlagen — richtig ist, nur die Zerfallsgrenzen
+zu melden, die NICHT an einer Ferienzeile liegen (`modPruefung.UnerklaerterZerfall`).
 Neue Zeilen stattdessen über „kopierte Zellen einfügen" erzeugen
 (`Rows(r).Copy`, dann `Rows(r+1).Insert Shift:=xlDown`) — Excel überträgt Formate,
 Kontrollkästchen-XF, Zeilenhöhe, Gültigkeitsliste UND bedingte Formatierung selbst mit.
