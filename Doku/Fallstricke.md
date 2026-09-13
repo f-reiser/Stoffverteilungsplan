@@ -5,10 +5,12 @@ vermeidbar gewesen wäre. Ausführlicher, mit Codebeispielen, in `Makros/LIESMIC
 
 ## Excel-Objektmodell
 
-**Bedingte Formatierung wird per VBA GAR NICHT angefasst** — weder lesend noch
-schreibend. Kein `FormatConditions.Add`, kein `ModifyAppliesToRange`, keine Enumeration.
-Sieben der acht Regeln sind x14-Erweiterungsregeln; der Zugriff auf die klassische
-`FormatConditions`-Auflistung hat Excel am 31.08.2026 hart abstürzen lassen.
+**Bedingte Formatierung wird per VBA nur gezählt** — `FormatConditions.Count` und sonst
+nichts. Kein `FormatConditions.Add`, kein `ModifyAppliesToRange`, keine Enumeration, kein
+`Formula1`. Sieben der acht Regeln sind x14-Erweiterungsregeln; der Zugriff auf die
+klassische `FormatConditions`-Auflistung hat Excel am 31.08.2026 hart abstürzen lassen.
+Das Zählen ist seit dem 13.09.2026 frei (Issue #31): `modPruefung` erkennt daran, ob der
+Farbbereich noch alle Planzeilen erreicht.
 Neue Zeilen stattdessen über „kopierte Zellen einfügen" erzeugen
 (`Rows(r).Copy`, dann `Rows(r+1).Insert Shift:=xlDown`) — Excel überträgt Formate,
 Kontrollkästchen-XF, Zeilenhöhe, Gültigkeitsliste UND bedingte Formatierung selbst mit.
