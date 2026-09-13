@@ -148,14 +148,37 @@ jobs:
         if: steps.vorpruefung.outputs.offen != '0'
         run: echo "start=$(date +%s)" >> "$GITHUB_OUTPUT"
 
+      #  Fest an ein Release gekoppelt, nicht an den jeweiligen main-Stand von
+      #  claude-skills. "plugin_marketplaces" der Action akzeptiert nur eine
+      #  URL ohne Ref - sie ruft intern nur "claude plugin marketplace add
+      #  <url>" auf, ohne jede Moeglichkeit, einen Tag mitzugeben (siehe
+      #  base-action/src/install-plugins.ts der Action: keine Ref-Syntax
+      #  vorgesehen, die URL muss sogar auf ".git" enden). Ungepinnt wuerde
+      #  jeder Merge in claude-skills sofort hier wirken - und sobald dieses
+      #  Repository nicht mehr nur Skills, sondern auch Actions verteilt (dort
+      #  als Vorschlag in Doku/Entscheidung_Workflows_hierher.md, noch nicht
+      #  entschieden), bricht ein Release dort sonst jedes abhaengige Projekt,
+      #  das sich auf den neuen Stand noch nicht eingeschwungen hat.
+      #
+      #  In RUNNER_TEMP, nicht im Arbeitsverzeichnis: Der Rettungsschritt am
+      #  Ende committet per "git add -A", was im Baum liegt - eine Kopie von
+      #  claude-skills haette darin nichts verloren.
+      #
+      #  Beim naechsten claude-skills-Release bewusst hochziehen: Tag hier
+      #  aendern, testen, committen - nicht automatisch der jeweils neueste.
+      - name: Skills bei einem festen Release auschecken
+        if: steps.vorpruefung.outputs.offen != '0'
+        run: |
+          git clone --branch reiser-workflow--v1.2.0 --depth 1 \
+            https://github.com/f-reiser/claude-skills.git \
+            "$RUNNER_TEMP/reiser-skills"
+
       #  id wieder da: Der letzte Schritt liest die strukturierte Ausgabe.
       - id: claude
         if: steps.vorpruefung.outputs.offen != '0'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          plugin_marketplaces: "https://github.com/f-reiser/claude-skills.git"
-          plugins: "reiser-workflow@reiser-skills"
           #  Modell und Aufwand kommen aus .github/modellwahl.py, gespeist aus den
           #  Steuerlabeln der offenen Vorgaenge. Frueher stand hier fest "opus" mit
           #  hohem Aufwand - jeder Lauf also zum Hoechstpreis, auch der, der eine
@@ -182,6 +205,9 @@ jobs:
           claude_args: |
             --model ${{ steps.modell.outputs.modell }}
             --effort ${{ steps.modell.outputs.aufwand }}
+            #  Direkt aus dem Checkout oben statt ueber "plugins:"/
+            #  "plugin_marketplaces:" der Action - Begruendung dort.
+            --plugin-dir ${{ runner.temp }}/reiser-skills/plugins/reiser-workflow
             #  Der zweite Testlauf lief bei 80 Runden aus, nachdem er einen
             #  Branch angelegt und einen Commit geschrieben hatte. Es fehlte
             #  der ganze Abschluss: pushen, CI abwarten, Gegenlese,
