@@ -559,6 +559,7 @@ End Function
 Private Function Farbregeln() As String
     Dim ws As Worksheet, r As Long, letzte As Long
     Dim soll As Long, ist As Long, n As Long, liste As String
+    Dim erg As String, zerfall As String
 
     Set ws = modWochenplan.WpSheet()
     If ws Is Nothing Then Exit Function
@@ -588,8 +589,76 @@ Private Function Farbregeln() As String
     Next r
 
     If n > 0 Then
-        Farbregeln = Meldung(PRF_FARBREGEL, n & " Planzeile(n) tragen andere " & _
+        erg = erg & Meldung(PRF_FARBREGEL, n & " Planzeile(n) tragen andere " & _
             "Farbregeln als Zeile " & WP_FIRST_ROW & ": " & liste)
+    End If
+
+    '  Zeilen-Einfuegen per "kopierte Zellen" (siehe modKalender) laesst
+    '  eine Regel-Flaeche an JEDER Ferienzeile in einen eigenen
+    '  Teilbereich zerfallen - normal, siehe Doku/Fallstricke.md. Eine
+    '  Grenze, die NICHT an einer Ferienzeile liegt, ist es nicht.
+    zerfall = UnerklaerterZerfall(ws)
+    If Len(zerfall) > 0 Then erg = erg & Meldung(PRF_FARBREGEL, zerfall)
+
+    Farbregeln = erg
+End Function
+
+
+'  Prueft die Grenzen zwischen den Teilbereichen der ERSTEN Regel
+'  (fester Index, siehe RegelZahl). Jede Grenze muss an einer
+'  Ferienzeile liegen - sonst ist der Zerfall nicht durch das normale
+'  Zeilen-Einfuegen erklaerbar und deutet auf eine beschaedigte
+'  Formatierung hin.
+'
+'  Nur .AppliesTo einer EINZELNEN Regel ueber einen festen Index,
+'  danach ausschliesslich Range-Eigenschaften (Areas, Row,
+'  Rows.Count) - kein Formula1, keine Schleife ueber die Regeln
+'  selbst. vbacheck.py haelt das nach.
+Private Function UnerklaerterZerfall(ByVal ws As Worksheet) As String
+    Dim rng As Range, i As Long, j As Long, tmp As Long, m As Long
+    Dim starts() As Long, endes() As Long, n As Long, liste As String
+
+    On Error Resume Next
+    Set rng = ws.Cells(WP_FIRST_ROW, "B").FormatConditions(1).AppliesTo
+    On Error GoTo 0
+    If rng Is Nothing Then Exit Function
+
+    m = rng.Areas.Count
+    If m <= 1 Then Exit Function
+
+    ReDim starts(1 To m)
+    ReDim endes(1 To m)
+    For i = 1 To m
+        starts(i) = rng.Areas(i).Row
+        endes(i) = starts(i) + rng.Areas(i).Rows.Count - 1
+    Next i
+
+    '  Einfache Sortierung nach Startzeile - m ist klein (Anzahl
+    '  Ferienzeilen plus eins).
+    For i = 1 To m - 1
+        For j = i + 1 To m
+            If starts(j) < starts(i) Then
+                tmp = starts(i): starts(i) = starts(j): starts(j) = tmp
+                tmp = endes(i): endes(i) = endes(j): endes(j) = tmp
+            End If
+        Next j
+    Next i
+
+    For i = 1 To m - 1
+        If Not (modWochenplan.IsFerienRow(ws, endes(i)) Or _
+                modWochenplan.IsFerienRow(ws, starts(i + 1))) Then
+            n = n + 1
+            If n <= PRF_BEISPIELE Then
+                If Len(liste) > 0 Then liste = liste & ", "
+                liste = liste & "Zeile " & endes(i) & "/" & starts(i + 1)
+            End If
+        End If
+    Next i
+
+    If n > 0 Then
+        UnerklaerterZerfall = "Die Farbregeln sind an " & n & " Stelle(n) zerfallen, " & _
+            "ohne dass dort eine Ferienzeile liegt: " & liste & _
+            " - das deutet auf eine beschaedigte Formatierung hin."
     End If
 End Function
 
