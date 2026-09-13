@@ -36,6 +36,12 @@ permissions:
   issues: write
   pull-requests: write
 
+#  Zwei fast gleichzeitige "labeled"-Events auf demselben Issue (z.B. ein
+#  Mehrfachauswahl-Klick im Label-Picker) sollen nacheinander laufen, nicht
+#  parallel - siehe die Begruendung in scope_ausschluss.py.
+concurrency:
+  group: label-waechter-${{ github.event.issue.number || github.event.pull_request.number }}
+
 jobs:
   zuruecknehmen:
     runs-on: ubuntu-latest
@@ -91,3 +97,16 @@ jobs:
           gh api --method POST "repos/$REPO/issues/$NR/comments" \
             -F "body=@$RUNNER_TEMP/kommentar.md"
           echo "::warning::$LABEL von $WER gesetzt und zurueckgenommen (#$NR)"
+
+      #  Scoped Labels nach GitLab-Vorbild (konventionen.md): pro Scope
+      #  gleichzeitig hoechstens ein Wert. Laeuft nach der Berechtigungspruefung
+      #  oben und unabhaengig von ihrem Ausgang - scope_ausschluss.py holt den
+      #  Label-Stand selbst frisch und prueft selbst, ob es noch etwas zu tun
+      #  gibt (siehe Begruendung dort).
+      - name: Geschwister-Label im selben Scope entfernen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          NR: ${{ github.event.issue.number || github.event.pull_request.number }}
+          LABEL: ${{ github.event.label.name }}
+        run: python3 "$GITHUB_WORKSPACE/.github/scope_ausschluss.py"
