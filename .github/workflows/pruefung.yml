@@ -45,6 +45,11 @@ jobs:
       - name: Zuordnung Vorgang zu Branch
         run: python .github/zuordnung.py --selbsttest
 
+      #  Ein Fehler hier wirkt sich auf Modellwahl UND Label-Schutz aus, faellt
+      #  aber nur an einer der beiden Stellen auf.
+      - name: Scoped Labels erkennen
+        run: python .github/scoped_labels.py --selbsttest
+
       #  Modell und Aufwand entscheiden, was ein Lauf kostet. Ein Fehler in der
       #  Zuordnung von Label zu Modell faellt sonst erst an der Rechnung auf.
       - name: Modellwahl aus den Labels
@@ -115,3 +120,9 @@ jobs:
           LAUF=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
           python3 .github/fortschritt.py vermerk "$NR" \
             "Pruefung $STAND fuer \`${GITHUB_SHA:0:7}\` auf \`$BRANCH\` ([Lauf]($LAUF))."
+
+      #  Welche Label ueberhaupt geschuetzt sind. Ein Fehler hier faellt sonst
+      #  erst auf, wenn ein scoped Label ungeschuetzt bleibt oder ein fremdes
+      #  Label faelschlich zurueckgenommen wird - siehe label-waechter.yml.
+      - name: Welche Label geschuetzt sind
+        run: python .github/geschuetzt.py --selbsttest

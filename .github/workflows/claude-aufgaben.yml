@@ -161,8 +161,8 @@ jobs:
           #  hohem Aufwand - jeder Lauf also zum Hoechstpreis, auch der, der eine
           #  Zeile Doku aendert. Das hat regelmaessig das Nutzungslimit geleert.
           #  Ohne Label ist der Standard jetzt Sonnet mit hohem Aufwand; wer mehr
-          #  will, setzt ein Label. Welche Fassung die Versionslabel "4" und "5"
-          #  bedeuten, steht in modellwahl.py und wird DORT nachgezogen.
+          #  will, setzt ein Label. Welche Fassung die Versionslabel "v::4" und
+          #  "v::5" bedeuten, steht in modellwahl.py und wird DORT nachgezogen.
           #
           #  Im agent-Modus setzt die Action WEDER einen permission-mode NOCH
           #  erlaubte Werkzeuge - und im Headless-Betrieb gibt es niemanden,
