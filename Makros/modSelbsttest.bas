@@ -44,7 +44,7 @@ Private mGetroffen As Boolean
 '  Prozeduren quittiert Excel das mit "Nach End Sub, End Function oder
 '  End Property koennen nur Kommentare stehen" - und in der Folge mit
 '  "Variable nicht definiert" an jeder Verwendung.
-Private Const MUT_ANZAHL As Long = 10
+Private Const MUT_ANZAHL As Long = 17
 Private mSaveText As String
 Private mSaveZahl As Double
 Private mSaveName As String
@@ -89,6 +89,7 @@ Public Sub Selbsttest()
     T0_Erreichbarkeit ws
     T1_Aufbau ws
     T1b_Zustand ws
+    T1c_Analyse ws
     T2_Aktualisieren ws
     T3_Wochen ws
     T3b_Aufraeumen ws
@@ -381,6 +382,54 @@ Private Sub T1b_Zustand(ByVal ws As Worksheet)
         End If
     Next r
     Chk "Unterrichtswochen laufen nirgends rueckwaerts", (fehlt = ""), fehlt
+End Sub
+
+
+'=====================================================================
+'  1c  Analyse der Mappe (modPruefung)
+'  ------------------------------------------------------------------
+'  Der Anwender kann seine Mappe zerlegen - ein aufgehobener
+'  Blattschutz, ein Ausschneiden-und-Einfuegen, eine geloeschte Spalte,
+'  und die Bezuege stimmen reihum nicht mehr. modPruefung findet das
+'  und meldet es; dieser Abschnitt prueft, dass es das auch tut.
+'
+'  Wie Abschnitt 1b: NUR LESEN, nichts reparieren. Genau deshalb kann
+'  der Mutationstest hier ansetzen.
+'
+'  Die Chk-Texte sind so gewaehlt, dass jeder MutErwartet-Baustein auf
+'  GENAU EINE Zeile zeigt - sonst zaehlte eine Sabotage als erkannt,
+'  die in Wahrheit einen anderen Check umgeworfen hat.
+'=====================================================================
+Private Sub T1c_Analyse(ByVal ws As Worksheet)
+    Dim alle As String, b As String
+
+    Abschnitt "1c  Analyse der Mappe"
+
+    '  EINE Analyse fuer alle sieben Kategorien. ws wird hier nicht
+    '  gebraucht - modPruefung sucht sich die Blaetter selbst; das
+    '  Argument haelt nur die Signatur der uebrigen Abschnitte ein.
+    alle = modPruefung.MappePruefen()
+
+    b = modPruefung.BefundAus(alle, modPruefung.PRF_FEHLERWERT)
+    Chk "Keine Fehlerwerte in den Blaettern", (b = ""), b
+
+    b = modPruefung.BefundAus(alle, modPruefung.PRF_FORMEL_FEHLT)
+    Chk "In jeder Planzeile stehen die Formeln", (b = ""), b
+
+    b = modPruefung.BefundAus(alle, modPruefung.PRF_FORMEL_ANDERS)
+    Chk "Alle Planzeilen tragen dieselbe Formel", (b = ""), b
+
+    b = modPruefung.BefundAus(alle, modPruefung.PRF_QUERBEZUG)
+    Chk "Querbezug auf die Lernbereiche stimmt", (b = ""), b
+
+    b = modPruefung.BefundAus(alle, modPruefung.PRF_GUELTIGKEIT)
+    Chk "Gueltigkeitsliste in Spalte K ist gesetzt", (b = ""), b
+
+    b = modPruefung.BefundAus(alle, modPruefung.PRF_KATEGORIE)
+    Chk "Alle Werte in Spalte K stehen in der Auswahlliste", (b = ""), b
+
+    b = modPruefung.BefundAus(alle, modPruefung.PRF_FARBREGEL)
+    Chk "Die Farbregeln decken alle Planzeilen ab", (b = ""), b
 End Sub
 
 
@@ -1326,6 +1375,7 @@ Public Sub Selbsttest_Pruefen()
     vorher = mFail
     AbschnittLaufen 0, ws
     AbschnittLaufen 1, ws
+    AbschnittLaufen 2, ws
     Chk "Die Mappe ist vor dem ersten Eingriff fehlerfrei", (mFail = vorher), _
         (mFail - vorher) & " Pruefung(en) schon ohne Sabotage rot"
     If mFail > vorher + 1 Then
@@ -1408,6 +1458,7 @@ Private Sub AbschnittLaufen(ByVal nr As Long, ByVal ws As Worksheet)
     Select Case nr
         Case 0: T0_Erreichbarkeit ws
         Case 1: T1b_Zustand ws
+        Case 2: T1c_Analyse ws
     End Select
 End Sub
 
@@ -1424,6 +1475,13 @@ Private Function MutName(ByVal i As Long) As String
         Case 8: MutName = "Unterrichtswochen verdreht"
         Case 9: MutName = "Makro von einer Schaltflaeche entfernt"
         Case 10: MutName = "zwei Schaltflaechen mit demselben Makro"
+        Case 11: MutName = "zerstoerter Bezug in einer Planzeile"
+        Case 12: MutName = "Formel aus einer Planzeile entfernt"
+        Case 13: MutName = "Formel einer Planzeile verbogen"
+        Case 14: MutName = "Querbezug der Spalte U verstellt"
+        Case 15: MutName = "Gueltigkeitsliste in Spalte K entfernt"
+        Case 16: MutName = "Stunden-Kategorie ausserhalb der Auswahlliste"
+        Case 17: MutName = "Planzeile ausserhalb des Farbbereichs"
     End Select
 End Function
 
@@ -1440,12 +1498,23 @@ Private Function MutErwartet(ByVal i As Long) As String
         Case 8: MutErwartet = "rueckwaerts"
         Case 9: MutErwartet = "zeigen auf ein Makro"
         Case 10: MutErwartet = "eigenes Makro"
+        Case 11: MutErwartet = "Fehlerwerte in den"
+        Case 12: MutErwartet = "stehen die Formeln"
+        Case 13: MutErwartet = "dieselbe Formel"
+        Case 14: MutErwartet = "Querbezug auf die"
+        Case 15: MutErwartet = "Gueltigkeitsliste in Spalte"
+        Case 16: MutErwartet = "in der Auswahlliste"
+        Case 17: MutErwartet = "Farbregeln decken"
     End Select
 End Function
 
 
 Private Function MutAbschnitt(ByVal i As Long) As Long
-    If i >= 9 Then MutAbschnitt = 0 Else MutAbschnitt = 1
+    Select Case i
+        Case 9, 10: MutAbschnitt = 0
+        Case Is >= 11: MutAbschnitt = 2
+        Case Else: MutAbschnitt = 1
+    End Select
 End Function
 
 
@@ -1547,6 +1616,64 @@ Private Sub Sabotieren(ByVal i As Long, ByVal ws As Worksheet)
                 s.OnAction = s1.OnAction
             End If
 
+        Case 11     ' zerstoerter Bezug in Spalte M (Notizen)
+            '  M ist eine Zelle, in die der Anwender selbst schreibt -
+            '  genau dort landet ein zerschossener Bezug im Ernstfall.
+            mSaveZahl = ErsteInhaltszeile(ws)
+            modWochenplan.FastOn
+            mSaveText = ws.Cells(CLng(mSaveZahl), "M").Formula
+            ws.Cells(CLng(mSaveZahl), "M").Formula = "=#REF!"
+            modWochenplan.FastOff
+
+        Case 12     ' Formel aus einer Planzeile entfernen
+            mSaveZahl = LetzteInhaltszeile(ws)
+            modWochenplan.FastOn
+            mSaveText = ws.Cells(CLng(mSaveZahl), "C").Formula
+            ws.Cells(CLng(mSaveZahl), "C").ClearContents
+            modWochenplan.FastOff
+
+        Case 13     ' Formel einer Planzeile verbiegen
+            '  Bewusst die LETZTE Inhaltszeile: die erste gibt das
+            '  Vergleichsmuster ab, eine Sabotage dort verschoebe nur,
+            '  welche Zeilen als abweichend gemeldet werden.
+            mSaveZahl = LetzteInhaltszeile(ws)
+            modWochenplan.FastOn
+            mSaveText = ws.Cells(CLng(mSaveZahl), "D").Formula
+            ws.Cells(CLng(mSaveZahl), "D").Formula = "=1"
+            modWochenplan.FastOff
+
+        Case 14     ' Querbezug der Spalte U verstellen
+            mSaveZahl = ErsteInhaltszeile(ws)
+            modWochenplan.FastOn
+            mSaveText = ws.Cells(CLng(mSaveZahl), "U").Formula
+            ws.Cells(CLng(mSaveZahl), "U").Formula = "=""x"""
+            modWochenplan.FastOff
+
+        Case 15     ' Gueltigkeitsliste in Spalte K entfernen
+            mSaveZahl = ErsteInhaltszeile(ws)
+            modWochenplan.FastOn
+            On Error Resume Next
+            ws.Cells(CLng(mSaveZahl), "K").Validation.Delete
+            On Error GoTo 0
+            modWochenplan.FastOff
+
+        Case 16     ' Kategorie eintragen, die es in der Liste nicht gibt
+            mSaveZahl = ErsteInhaltszeile(ws)
+            modWochenplan.FastOn
+            mSaveText = CStr(ws.Cells(CLng(mSaveZahl), "K").Value)
+            ws.Cells(CLng(mSaveZahl), "K").Value = "Gibt-es-nicht"
+            modWochenplan.FastOff
+
+        Case 17     ' den Plan ueber den Farbbereich hinauswachsen lassen
+            '  Bewusst das Ferienkennzeichen und keine Notiz: die Zeile
+            '  zaehlt damit zum Plan (PlanLastRow sieht auf MARK_COL),
+            '  wird aber von jeder anderen Pruefung uebersprungen. So
+            '  bleibt genau EIN Check rot, und das ist der gemeinte.
+            mSaveZahl = modWochenplan.PlanLastRow(ws) + 1
+            modWochenplan.FastOn
+            ws.Cells(CLng(mSaveZahl), MARK_COL).Value = MARK_TAG
+            modWochenplan.FastOff
+
     End Select
 End Sub
 
@@ -1613,7 +1740,109 @@ Private Sub Zuruecknehmen(ByVal i As Long, ByVal ws As Worksheet)
             Set s = FormNachName(mSaveName)
             If Not s Is Nothing Then s.OnAction = mSaveText
 
+        Case 11
+            modWochenplan.FastOn
+            FormelZurueck ws.Cells(CLng(mSaveZahl), "M"), mSaveText
+            modWochenplan.FastOff
+
+        Case 12
+            modWochenplan.FastOn
+            FormelZurueck ws.Cells(CLng(mSaveZahl), "C"), mSaveText
+            modWochenplan.FastOff
+
+        Case 13
+            modWochenplan.FastOn
+            FormelZurueck ws.Cells(CLng(mSaveZahl), "D"), mSaveText
+            modWochenplan.FastOff
+
+        Case 14
+            modWochenplan.FastOn
+            FormelZurueck ws.Cells(CLng(mSaveZahl), "U"), mSaveText
+            modWochenplan.FastOff
+
+        Case 15
+            '  Dieselbe Liste, die modWochenplan.RebuildValidation
+            '  schreibt - sie kommt aus dem erkannten Layout, nicht aus
+            '  einer gemerkten Adresse.
+            modWochenplan.FastOn
+            On Error Resume Next
+            With ws.Cells(CLng(mSaveZahl), "K").Validation
+                .Delete
+                .Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, _
+                     Operator:=xlBetween, Formula1:="=" & modWochenplan.StdListAddress()
+                .IgnoreBlank = True
+                .InCellDropdown = True
+                .ShowInput = False
+                .ShowError = True
+                .ErrorTitle = "Ungültige Eingabe"
+                .ErrorMessage = "Bitte einen Wert aus der Liste wählen."
+            End With
+            On Error GoTo 0
+            modWochenplan.FastOff
+
+        Case 16
+            modWochenplan.FastOn
+            If mSaveText = "" Then
+                ws.Cells(CLng(mSaveZahl), "K").ClearContents
+            Else
+                ws.Cells(CLng(mSaveZahl), "K").Value = mSaveText
+            End If
+            modWochenplan.FastOff
+
+        Case 17
+            modWochenplan.FastOn
+            ws.Cells(CLng(mSaveZahl), MARK_COL).ClearContents
+            modWochenplan.FastOff
+
     End Select
+End Sub
+
+
+'  Erste bzw. letzte Planzeile, die keine Ferienzeile ist. Die
+'  Mutationen brauchen beide: die erste fuer alles, was nur EINE Zeile
+'  betrifft, die letzte dort, wo die erste Zeile das Vergleichsmuster
+'  stellt.
+Private Function ErsteInhaltszeile(ByVal ws As Worksheet) As Long
+    Dim r As Long
+    For r = WP_FIRST_ROW To modWochenplan.PlanLastRow(ws)
+        If Not modWochenplan.IsFerienRow(ws, r) Then
+            ErsteInhaltszeile = r
+            Exit Function
+        End If
+    Next r
+    ErsteInhaltszeile = WP_FIRST_ROW
+End Function
+
+
+Private Function LetzteInhaltszeile(ByVal ws As Worksheet) As Long
+    Dim r As Long
+    For r = modWochenplan.PlanLastRow(ws) To WP_FIRST_ROW Step -1
+        If Not modWochenplan.IsFerienRow(ws, r) Then
+            LetzteInhaltszeile = r
+            Exit Function
+        End If
+    Next r
+    LetzteInhaltszeile = WP_FIRST_ROW
+End Function
+
+
+'  Eine gemerkte Formel zurueckschreiben. Wie modWochenplan es beim
+'  Aufbau macht: erst Formula2 (Spalte U ist eine dynamische
+'  Matrixformel), bei Fehlschlag Formula. Ein leerer Merktext heisst
+'  "da stand nichts" und wird nicht als leere Formel geschrieben.
+Private Sub FormelZurueck(ByVal c As Range, ByVal frm As String)
+    If Len(frm) = 0 Then
+        c.ClearContents
+        Exit Sub
+    End If
+    On Error Resume Next
+    Err.Clear
+    c.Formula2 = frm
+    If Err.Number <> 0 Then
+        Err.Clear
+        c.Formula = frm
+    End If
+    On Error GoTo 0
 End Sub
 
 
