@@ -12,15 +12,16 @@ klassische `FormatConditions`-Auflistung hat Excel am 31.08.2026 hart abstürzen
 Das Zählen ist seit dem 13.09.2026 frei (Issue #31): `modPruefung` erkennt daran, ob der
 Farbbereich noch alle Planzeilen erreicht.
 
-**Flächen-Zerfall einer Regel ist KEIN Fehler.** `AppliesTo.Areas.Count` einer Regel (PR
-#59, „Weg 2") crasht nicht, wenn man ihn testweise liest — aber er ist trotzdem nutzlos
-als Fehlersignal: Der in diesem Projekt verwendete Trick „Zeile kopieren, dann als
-kopierte Zellen einfügen" (siehe unten) dehnt die bedingte Formatierung zwar korrekt
-mit aus, lässt eine ursprünglich EINE zusammenhängende Fläche dabei aber in viele
-aneinandergrenzende Teilbereiche zerfallen — sichtbar im Dialog „Regeln verwalten" als
-lange Liste fast identischer Bereiche. Das passiert bei JEDEM Einfügen einer Zeile
-(Ferienzeile oder Inhaltszeile) und damit auf praktisch jeder länger genutzten, völlig
-gesunden Mappe. Ein Check, der das als Warnung meldet, erzeugt nur Fehlalarme.
+**Flächen-Zerfall einer Regel ist nur an einer Ferienzeile normal.** `.AppliesTo` einer
+Regel crasht nicht, wenn man sie liest (bestätigt, PR #59). Der in diesem Projekt
+verwendete Trick „Zeile kopieren, dann als kopierte Zellen einfügen" (siehe unten) dehnt
+die bedingte Formatierung zwar korrekt mit aus, lässt eine ursprünglich EINE
+zusammenhängende Fläche dabei aber an JEDER eingefügten Zeile in einen eigenen
+Teilbereich zerfallen — sichtbar im Dialog „Regeln verwalten" als lange Liste fast
+identischer Bereiche. Das passiert bei jeder Ferienzeile und ist normal, kein Fehler.
+Eine erste Fassung dieser Prüfung hat jeden Zerfall gemeldet und damit auf praktisch
+jeder echten, gesunden Mappe Fehlalarm geschlagen — richtig ist, nur die Zerfallsgrenzen
+zu melden, die NICHT an einer Ferienzeile liegen (`modPruefung.UnerklaerterZerfall`).
 Neue Zeilen stattdessen über „kopierte Zellen einfügen" erzeugen
 (`Rows(r).Copy`, dann `Rows(r+1).Insert Shift:=xlDown`) — Excel überträgt Formate,
 Kontrollkästchen-XF, Zeilenhöhe, Gültigkeitsliste UND bedingte Formatierung selbst mit.
