@@ -14,6 +14,10 @@
 '  Ohne diesen Code funktioniert alles Uebrige trotzdem - dann laesst
 '  sich die Gliederung erst nach dem ersten Klick auf eine Schaltflaeche
 '  wieder auf- und zuklappen.
+'
+'  Dazu sieht modPruefung.WarnungAnzeigen nach, ob Formeln und Bezuege
+'  noch stimmen, und schreibt das Ergebnis in das Blatt "Steuerung".
+'  Es wird nichts repariert - nur gemeldet.
 ' ====================================================================
 
 Option Explicit
@@ -21,4 +25,5 @@ Option Explicit
 Private Sub Workbook_Open()
     On Error Resume Next
     modSchutz.Blattschutz_Nachziehen
+    modPruefung.WarnungAnzeigen
 End Sub
