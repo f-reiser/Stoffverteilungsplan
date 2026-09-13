@@ -531,6 +531,7 @@ End Function
 Private Function Farbregeln() As String
     Dim ws As Worksheet, r As Long, letzte As Long
     Dim soll As Long, ist As Long, n As Long, liste As String
+    Dim erg As String, flaechen As Long
 
     Set ws = modWochenplan.WpSheet()
     If ws Is Nothing Then Exit Function
@@ -560,9 +561,45 @@ Private Function Farbregeln() As String
     Next r
 
     If n > 0 Then
-        Farbregeln = Meldung(PRF_FARBREGEL, n & " Planzeile(n) tragen andere " & _
+        erg = erg & Meldung(PRF_FARBREGEL, n & " Planzeile(n) tragen andere " & _
             "Farbregeln als Zeile " & WP_FIRST_ROW & ": " & liste)
     End If
+
+    '  Die Regelzahl bleibt gleich, wenn eine Regel nicht verschwindet,
+    '  sondern nur zerfaellt: wiederholtes Einfuegen/Loeschen zerlegt
+    '  ihre Flaeche ("Wird angewendet auf") in mehrere Teilbereiche, die
+    '  zusammen weiterhin jede Zeile abdecken (siehe PR #59). Das sieht
+    '  keine Zaehlung - deshalb der zusaetzliche Zugriff unten.
+    flaechen = FlaechenZerfallen(ws)
+    If flaechen > 1 Then
+        erg = erg & Meldung(PRF_FARBREGEL, "Die Farbregeln sind in " & flaechen & _
+            " Teilbereiche zerfallen, obwohl die Regelzahl je Zeile noch stimmt - " & _
+            "vermutlich durch wiederholtes Einfuegen/Loeschen von Zeilen. Die " & _
+            "Formatierung ist dann unzuverlaessig.")
+    End If
+
+    Farbregeln = erg
+End Function
+
+
+'  Wieviele Teilbereiche die erste Regel abdeckt (siehe Farbregeln).
+'  >1 heisst: die Flaeche ist zerfallen. -1 heisst wie bei RegelZahl
+'  "Excel hat nichts hergegeben".
+'
+'  Das ist der EINE zusaetzliche Zugriff ueber .Count hinaus, den
+'  Regel 2 aus CLAUDE.md seit dem 13.09.2026 erlaubt (PR #59, "Weg 2"):
+'  ein fester, literaler Index (1), keine Schleife ueber die Regeln,
+'  nur AppliesTo.Areas.Count - kein Formula1, kein Schreiben.
+'  vbacheck.py haelt genau dieses eine Muster nach.
+'
+'  Faellt es Excel wieder hart um: nur diese Funktion und ihr Aufruf
+'  in Farbregeln muessen zurueckgebaut werden, dazu die Lockerung in
+'  vbacheck.py (Abschnitt "3. FormatConditions").
+Private Function FlaechenZerfallen(ByVal ws As Worksheet) As Long
+    FlaechenZerfallen = -1
+    On Error Resume Next
+    FlaechenZerfallen = ws.Cells(WP_FIRST_ROW, "B").FormatConditions(1).AppliesTo.Areas.Count
+    On Error GoTo 0
 End Function
 
 

@@ -16,12 +16,17 @@ Der VBA-Editor liest beim Import ANSI. Das Edit-Werkzeug schreibt UTF-8 zurück 
 ersetzt dabei jeden Umlaut durch U+FFFD — der Inhalt ist danach weg. Jede Änderung über
 ein Python-Skript mit `io.open(p, encoding='cp1252', newline='')`.
 
-**2. An der bedingten Formatierung wird per VBA nur `FormatConditions.Count` gelesen.**
-Sieben der acht Regeln sind x14-Erweiterungsregeln; der Zugriff auf eine einzelne Regel
-hat Excel hart abstürzen lassen. Das reine Zählen hat der Nutzer am 13.09.2026
-freigegeben, weil die Warnung aus Issue #31 es braucht. Alles andere — Schreiben,
-Enumerieren, `Formula1` lesen — bleibt verboten; `vbacheck.py` lässt nichts als `.Count`
-durch.
+**2. An der bedingten Formatierung wird per VBA nur `FormatConditions.Count` gelesen,
+plus ein einziger Sonderfall.** Sieben der acht Regeln sind x14-Erweiterungsregeln; der
+Zugriff auf eine einzelne Regel hat Excel hart abstürzen lassen. Das reine Zählen hat der
+Nutzer am 13.09.2026 freigegeben, weil die Warnung aus Issue #31 es braucht.
+
+Zusätzlich erlaubt seit PR #59 ("Weg 2", Nutzerkommentar vom 13.09.2026): `.Count` einer
+EINZELNEN Regel `AppliesTo.Areas` — über einen festen, literalen Index, nie über eine
+Variable oder Schleife. Das erkennt, ob die Fläche einer Regel in mehrere Teilbereiche
+zerfallen ist, obwohl die Regelzahl je Zeile noch stimmt (`modPruefung.FlaechenZerfallen`).
+Alles andere — Schreiben, Enumerieren, `Formula1` lesen — bleibt verboten; `vbacheck.py`
+lässt nichts außer diesen zwei Mustern durch.
 
 **3. openpyxl darf diese Mappen NIEMALS speichern.**
 Es wirft die x14-Erweiterungen weg und beschädigt `xl/vbaProject.bin`. Lesen ist
