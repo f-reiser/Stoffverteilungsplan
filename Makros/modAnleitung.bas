@@ -49,7 +49,7 @@ Public Const SHEET_HELP As String = "Anleitung"
 '  bei einem Versionswechsel verloren. Das ist bewusst so - das Blatt
 '  ist erzeugter Text, kein Notizzettel; ein veralteter Text kostet
 '  mehr als eine verlorene Randnotiz.
-Public Const ANLEITUNG_STAND As String = "2026-09-05a"
+Public Const ANLEITUNG_STAND As String = "2026-09-13a"
 
 '  Unsichtbarer Name in der Mappe, in dem der Stand hinterlegt wird.
 '  Public, damit der Mutationstest ihn gezielt verstellen kann.
@@ -382,6 +382,11 @@ Private Sub BuildHelpSheet(ByVal ws As Worksheet)
     W ws, "S", "Einmal im Blatt """ & CTRL_SHEET & """ auf ""Wochenplan neu " & _
                "aufbauen"" drücken. Danach hat jede Zeile ihre Unterrichtswoche " & _
                "in Spalte E, und dazwischen stehen die grauen Ferienzeilen."
+    W ws, "N", "Dieser Knopf funktioniert auch direkt nach Schritt 2, wenn """ & _
+               WP_SHEET & """ noch leer ist: er legt dann für jede verfügbare " & _
+               "Unterrichtswoche eine leere Zeile an - bereit zum Füllen. Lässt du " & _
+               "stattdessen eine KI mithilfe von lehrplanPLUS.de vorbefüllen, bringt " & _
+               "sie die Zeilen schon mit; dieser Schritt entfällt dann."
     W ws, "N", "Diesen Knopf darfst du jederzeit wieder drücken, auch wenn der Plan " & _
                "schon voll ist. Er ordnet nur die Unterrichtswochen und die " & _
                "Ferienzeilen neu - deine Einträge in den Spalten F bis M bleiben " & _
