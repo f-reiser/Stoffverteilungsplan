@@ -106,6 +106,10 @@ Public Sub Setup_Stoffverteilungsplan()
     modKopf.Kopf_Aktualisieren True
     modSchutz.Blattschutz_Einrichten
 
+    '  Zum Schluss und nicht am Anfang: nach dem Neuaufbau steht in der
+    '  Warnzeile, was der Neuaufbau NICHT heilen konnte.
+    modPruefung.WarnungAnzeigen
+
     modWochenplan.GotoSheet CTRL_SHEET, "B2"
 
     modWochenplan.Info "Die Einrichtung ist abgeschlossen."
@@ -267,6 +271,9 @@ Private Sub EnsureSteuerung()
               "eine Fehlermeldung darum bittet."
     r = r + 2
 
+    PruefHinweisZelle ws, r
+    r = r + 2
+
     '  Bewusst rot und mit Warnzeichen: das ist die einzige
     '  Schaltflaeche der Mappe, mit der man sich ernsthaft schaden
     '  kann. Siehe die Begruendung im Text.
@@ -391,6 +398,41 @@ Private Sub PdfFormatZelle(ByVal ws As Worksheet, ByVal r As Long)
         .IndentLevel = 1
         .VerticalAlignment = xlCenter
     End With
+End Sub
+
+
+'---------------------------------------------------------------------
+'  Die Zeile, in der modPruefung seine Warnung ablegt - direkt unter
+'  "Einrichtung / Reparatur", weil genau dieser Knopf die Antwort auf
+'  eine Warnung ist.
+'
+'  Sie bekommt den Namen wpPruefHinweis: so findet modPruefung sie
+'  wieder, ohne dass irgendwo eine Zeilennummer steht. Feste Hoehe,
+'  keine Anpassung an den Text - verbundene Zellen koennen kein
+'  AutoFit, und die Hoehe liesse sich bei geschuetztem Blatt ohnehin
+'  nicht nachziehen.
+'---------------------------------------------------------------------
+Private Sub PruefHinweisZelle(ByVal ws As Worksheet, ByVal r As Long)
+    Dim c As Range
+
+    ws.Rows(r).RowHeight = 30
+    ws.Rows(r + 1).RowHeight = 10
+
+    Set c = ws.Cells(r, BTN_COL)
+    With ws.Range(c, ws.Cells(r, TXT_COL))
+        .Merge
+        .WrapText = True
+        .VerticalAlignment = xlTop
+        .IndentLevel = 1
+        .Font.Size = 9
+    End With
+    c.Value = modPruefung.PRF_SAUBER
+    c.Font.Color = modWochenplan.FARBE_LEISE
+
+    On Error Resume Next
+    ThisWorkbook.Names.Add Name:=modPruefung.PRF_ZELLE_NAME, _
+                           RefersTo:="=" & ws.Name & "!" & c.Address(True, True)
+    On Error GoTo 0
 End Sub
 
 

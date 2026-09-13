@@ -215,9 +215,16 @@ def check(path):
         problems.append(f"Am Dateiende noch offen: {stack}")
 
     # --- 3. FormatConditions ---------------------------------------
+    # Lesen der ANZAHL ist seit 13.09.2026 erlaubt (Issue #31): die
+    # Warnung vor einem zerlegten Farbbereich braucht sie. Alles andere
+    # bleibt verboten - Add, Delete, ModifyAppliesToRange und auch das
+    # Auslesen einer einzelnen Regel, denn dabei stuerzte Excel ab.
+    nur_count = re.compile(r"formatconditions\s*\.\s*count")
     for n, l in lines:
-        if "formatcondition" in l.lower():
-            problems.append(f"Zeile {n}: Zugriff auf FormatConditions - verboten")
+        low = l.lower()
+        if low.count("formatcondition") > len(nur_count.findall(low)):
+            problems.append(
+                f"Zeile {n}: Zugriff auf FormatConditions ausser .Count - verboten")
 
 
     # --- 5. Verbundene Zellen: Vollbereich quer durch B..M ----------
@@ -282,7 +289,7 @@ def check(path):
 
 MODULES = {"modwochenplan", "modkalender", "modsteuerung", "modanleitung",
            "modschutz", "modkopf", "modkonfig", "modselbsttest", "moduebernahme",
-           "modstart"}
+           "modstart", "modpruefung"}
 
 PROC_START = re.compile(
     r"^\s*(?:(public|private|friend)\s+)?(?:static\s+)?"
@@ -517,6 +524,17 @@ End Sub
 Public Sub Mut_CF()
     Dim ws As Worksheet
     ws.Cells.FormatConditions.Delete
+End Sub
+""")),
+
+    # Die Ausnahme fuer .Count darf nicht die ganze Regel aushebeln:
+    # eine einzelne Regel auszulesen bleibt verboten.
+    ("einzelne Regel der bedingten Formatierung gelesen", "FormatConditions",
+     lambda t: _anhaengen(t, """
+Public Sub Mut_CF_Lesen()
+    Dim ws As Worksheet
+    Dim s As String
+    s = ws.Cells.FormatConditions(1).Formula1
 End Sub
 """)),
 
