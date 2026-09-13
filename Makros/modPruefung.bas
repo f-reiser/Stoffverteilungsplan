@@ -44,10 +44,16 @@ Public Const PRF_GUELTIGKEIT   As String = "Gueltigkeitsliste"
 Public Const PRF_KATEGORIE     As String = "Stunden-Kategorie"
 Public Const PRF_FARBREGEL     As String = "Farbregeln"
 
-'  Name der Zelle im Blatt "Steuerung", in der die Warnung steht.
-'  Ueber einen Namen und nicht ueber eine Zeilennummer - im ganzen
-'  Projekt ist keine Zeile fest verdrahtet.
+'  Namen der beiden Zellen im Blatt "Steuerung", in denen die Warnung
+'  steht. Ueber Namen und nicht ueber Zeilennummern - im ganzen Projekt
+'  ist keine Zeile fest verdrahtet.
 Public Const PRF_ZELLE_NAME As String = "wpPruefHinweis"
+
+'  Der Kurzhinweis oben im Blatt, direkt unter "Blattschutz: ...":
+'  ohne Details, nur damit man die ausfuehrliche Warnzeile bei
+'  "Einrichtung / Reparatur" nicht erst suchen muss (Nutzerwunsch aus
+'  PR #59). Leer, solange nichts zu melden ist.
+Public Const PRF_ZELLE_KURZ_NAME As String = "wpPruefKurz"
 
 Public Const PRF_SAUBER As String = _
     "Prüfung: keine Auffälligkeiten. Formeln, Bezüge, Farbregeln und die " & _
@@ -111,7 +117,8 @@ End Function
 '  Aufgerufen von Setup_Stoffverteilungsplan und von Workbook_Open.
 '=====================================================================
 Public Sub WarnungAnzeigen()
-    Dim c As Range, ws As Worksheet, txt As String, neu As String, n As Long
+    Dim c As Range, cKurz As Range, ws As Worksheet
+    Dim txt As String, neu As String, neuKurz As String, n As Long
 
     On Error GoTo Fail
     txt = MappePruefen()
@@ -119,20 +126,32 @@ Public Sub WarnungAnzeigen()
 
     If n = 0 Then
         neu = PRF_SAUBER
+        neuKurz = ""
     Else
         neu = ChrW$(9888) & " " & n & " Auffälligkeit(en) gefunden: " & Einzeiler(txt) & _
               " - Bitte erst eine Sicherungskopie anlegen, dann """ & CAP_SETUP & """."
+        neuKurz = ChrW$(9888) & " " & n & " Auffälligkeit(en) - Details bei """ & _
+                  CAP_SETUP & """."
     End If
 
     Set c = HinweisZelle()
-    If Not c Is Nothing Then
-        '  Nur schreiben, wenn sich wirklich etwas geaendert hat: jeder
-        '  Schreibzugriff macht die Mappe "geaendert", und dann fragt
-        '  Excel beim Schliessen nach dem Speichern, obwohl der Anwender
-        '  die Datei nur aufgemacht hat.
-        If CStr(c.Value) <> neu Then
+    Set cKurz = HinweisZelleKurz()
+
+    '  Nur schreiben, wenn sich wirklich etwas geaendert hat: jeder
+    '  Schreibzugriff macht die Mappe "geaendert", und dann fragt Excel
+    '  beim Schliessen nach dem Speichern, obwohl der Anwender die
+    '  Datei nur aufgemacht hat. Beide Zellen haengen an derselben
+    '  Pruefung, deshalb genuegt EIN Schutz_Aus/Schutz_An fuer beide.
+    If (Not c Is Nothing And CStr(c.Value) <> neu) Or _
+       (Not cKurz Is Nothing And CStr(cKurz.Value) <> neuKurz) Then
+        If Not c Is Nothing Then
             Set ws = c.Worksheet
-            modSchutz.Schutz_Aus ws
+        Else
+            Set ws = cKurz.Worksheet
+        End If
+        modSchutz.Schutz_Aus ws
+
+        If Not c Is Nothing Then
             c.Value = neu
             c.Font.Bold = (n > 0)
             If n > 0 Then
@@ -140,8 +159,10 @@ Public Sub WarnungAnzeigen()
             Else
                 c.Font.Color = modWochenplan.FARBE_LEISE
             End If
-            modSchutz.Schutz_An
         End If
+        If Not cKurz Is Nothing Then cKurz.Value = neuKurz
+
+        modSchutz.Schutz_An
     End If
 
     StatusleisteSetzen n
@@ -171,6 +192,13 @@ End Sub
 Private Function HinweisZelle() As Range
     On Error Resume Next
     Set HinweisZelle = ThisWorkbook.Names(PRF_ZELLE_NAME).RefersToRange
+    On Error GoTo 0
+End Function
+
+
+Private Function HinweisZelleKurz() As Range
+    On Error Resume Next
+    Set HinweisZelleKurz = ThisWorkbook.Names(PRF_ZELLE_KURZ_NAME).RefersToRange
     On Error GoTo 0
 End Function
 
@@ -531,7 +559,6 @@ End Function
 Private Function Farbregeln() As String
     Dim ws As Worksheet, r As Long, letzte As Long
     Dim soll As Long, ist As Long, n As Long, liste As String
-    Dim erg As String, flaechen As Long
 
     Set ws = modWochenplan.WpSheet()
     If ws Is Nothing Then Exit Function
@@ -561,45 +588,9 @@ Private Function Farbregeln() As String
     Next r
 
     If n > 0 Then
-        erg = erg & Meldung(PRF_FARBREGEL, n & " Planzeile(n) tragen andere " & _
+        Farbregeln = Meldung(PRF_FARBREGEL, n & " Planzeile(n) tragen andere " & _
             "Farbregeln als Zeile " & WP_FIRST_ROW & ": " & liste)
     End If
-
-    '  Die Regelzahl bleibt gleich, wenn eine Regel nicht verschwindet,
-    '  sondern nur zerfaellt: wiederholtes Einfuegen/Loeschen zerlegt
-    '  ihre Flaeche ("Wird angewendet auf") in mehrere Teilbereiche, die
-    '  zusammen weiterhin jede Zeile abdecken (siehe PR #59). Das sieht
-    '  keine Zaehlung - deshalb der zusaetzliche Zugriff unten.
-    flaechen = FlaechenZerfallen(ws)
-    If flaechen > 1 Then
-        erg = erg & Meldung(PRF_FARBREGEL, "Die Farbregeln sind in " & flaechen & _
-            " Teilbereiche zerfallen, obwohl die Regelzahl je Zeile noch stimmt - " & _
-            "vermutlich durch wiederholtes Einfuegen/Loeschen von Zeilen. Die " & _
-            "Formatierung ist dann unzuverlaessig.")
-    End If
-
-    Farbregeln = erg
-End Function
-
-
-'  Wieviele Teilbereiche die erste Regel abdeckt (siehe Farbregeln).
-'  >1 heisst: die Flaeche ist zerfallen. -1 heisst wie bei RegelZahl
-'  "Excel hat nichts hergegeben".
-'
-'  Das ist der EINE zusaetzliche Zugriff ueber .Count hinaus, den
-'  Regel 2 aus CLAUDE.md seit dem 13.09.2026 erlaubt (PR #59, "Weg 2"):
-'  ein fester, literaler Index (1), keine Schleife ueber die Regeln,
-'  nur AppliesTo.Areas.Count - kein Formula1, kein Schreiben.
-'  vbacheck.py haelt genau dieses eine Muster nach.
-'
-'  Faellt es Excel wieder hart um: nur diese Funktion und ihr Aufruf
-'  in Farbregeln muessen zurueckgebaut werden, dazu die Lockerung in
-'  vbacheck.py (Abschnitt "3. FormatConditions").
-Private Function FlaechenZerfallen(ByVal ws As Worksheet) As Long
-    FlaechenZerfallen = -1
-    On Error Resume Next
-    FlaechenZerfallen = ws.Cells(WP_FIRST_ROW, "B").FormatConditions(1).AppliesTo.Areas.Count
-    On Error GoTo 0
 End Function
 
 

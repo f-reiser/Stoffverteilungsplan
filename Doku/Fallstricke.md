@@ -5,15 +5,22 @@ vermeidbar gewesen wäre. Ausführlicher, mit Codebeispielen, in `Makros/LIESMIC
 
 ## Excel-Objektmodell
 
-**Bedingte Formatierung wird per VBA nur gezählt, plus EIN Sonderfall.** Erlaubt sind
-`FormatConditions.Count` und, seit PR #59 ("Weg 2"), `AppliesTo.Areas.Count` einer
-EINZELNEN Regel über einen festen, literalen Index — das erkennt eine Fläche, die in
-mehrere Teilbereiche zerfallen ist, obwohl die Regelzahl je Zeile noch stimmt. Kein
-`FormatConditions.Add`, kein `ModifyAppliesToRange`, keine Enumeration (auch nicht über
-einen Schleifenindex), kein `Formula1`. Sieben der acht Regeln sind x14-Erweiterungsregeln;
-der Zugriff auf die klassische `FormatConditions`-Auflistung hat Excel am 31.08.2026 hart
-abstürzen lassen. Das Zählen ist seit dem 13.09.2026 frei (Issue #31): `modPruefung`
-erkennt daran, ob der Farbbereich noch alle Planzeilen erreicht.
+**Bedingte Formatierung wird per VBA nur gezählt** — `FormatConditions.Count` und sonst
+nichts. Kein `FormatConditions.Add`, kein `ModifyAppliesToRange`, keine Enumeration, kein
+`Formula1`. Sieben der acht Regeln sind x14-Erweiterungsregeln; der Zugriff auf die
+klassische `FormatConditions`-Auflistung hat Excel am 31.08.2026 hart abstürzen lassen.
+Das Zählen ist seit dem 13.09.2026 frei (Issue #31): `modPruefung` erkennt daran, ob der
+Farbbereich noch alle Planzeilen erreicht.
+
+**Flächen-Zerfall einer Regel ist KEIN Fehler.** `AppliesTo.Areas.Count` einer Regel (PR
+#59, „Weg 2") crasht nicht, wenn man ihn testweise liest — aber er ist trotzdem nutzlos
+als Fehlersignal: Der in diesem Projekt verwendete Trick „Zeile kopieren, dann als
+kopierte Zellen einfügen" (siehe unten) dehnt die bedingte Formatierung zwar korrekt
+mit aus, lässt eine ursprünglich EINE zusammenhängende Fläche dabei aber in viele
+aneinandergrenzende Teilbereiche zerfallen — sichtbar im Dialog „Regeln verwalten" als
+lange Liste fast identischer Bereiche. Das passiert bei JEDEM Einfügen einer Zeile
+(Ferienzeile oder Inhaltszeile) und damit auf praktisch jeder länger genutzten, völlig
+gesunden Mappe. Ein Check, der das als Warnung meldet, erzeugt nur Fehlalarme.
 Neue Zeilen stattdessen über „kopierte Zellen einfügen" erzeugen
 (`Rows(r).Copy`, dann `Rows(r+1).Insert Shift:=xlDown`) — Excel überträgt Formate,
 Kontrollkästchen-XF, Zeilenhöhe, Gültigkeitsliste UND bedingte Formatierung selbst mit.
