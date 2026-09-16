@@ -49,7 +49,7 @@ Public Const SHEET_HELP As String = "Anleitung"
 '  bei einem Versionswechsel verloren. Das ist bewusst so - das Blatt
 '  ist erzeugter Text, kein Notizzettel; ein veralteter Text kostet
 '  mehr als eine verlorene Randnotiz.
-Public Const ANLEITUNG_STAND As String = "2026-09-05a"
+Public Const ANLEITUNG_STAND As String = "2026-09-16a"
 
 '  Unsichtbarer Name in der Mappe, in dem der Stand hinterlegt wird.
 '  Public, damit der Mutationstest ihn gezielt verstellen kann.
@@ -384,11 +384,12 @@ Private Sub BuildHelpSheet(ByVal ws As Worksheet)
                "in Spalte E, und dazwischen stehen die grauen Ferienzeilen."
     W ws, "N", "Diesen Knopf darfst du jederzeit wieder drücken, auch wenn der Plan " & _
                "schon voll ist. Er ordnet nur die Unterrichtswochen und die " & _
-               "Ferienzeilen neu - deine Einträge in den Spalten F bis M bleiben " & _
-               "unangetastet und wandern mit ihrer Zeile mit."
+               "Ferienzeilen neu - deine Einträge in den Spalten F bis L bleiben " & _
+               "unangetastet und wandern mit ihrer Zeile mit. Notizen in Spalte M " & _
+               "folgen dagegen ihrer Unterrichtswoche, falls die sich verschiebt."
     W ws, "S", "Jetzt Zeile für Zeile füllen: Lehrplan-Code (F), Thema (G), " & _
-               "Kompetenzen (H), Material (I), Art der Stunde (K) und bei Bedarf " & _
-               "Notizen (M)."
+               "Kompetenzen (H), Anmerkungen zum Stoff (I), Art der Stunde (K) " & _
+               "und bei Bedarf wochenbezogene Notizen (M)."
     W ws, "S", "Die Auswahl in Spalte K färbt die Zeile ein. So siehst du auf einen " & _
                "Blick, wo Schulaufgaben, Puffer und verschiebbare Stunden liegen."
     W ws, "S", "Reihenfolge ändern: Zeilen markieren - links am Rand erscheinen vier " & _
@@ -450,14 +451,15 @@ Private Sub BuildHelpSheet(ByVal ws As Worksheet)
     W ws, "S", "C  Datum, D  KW - kommen automatisch aus der Unterrichtswoche."
     W ws, "S", "E  UW - die Unterrichtswoche. Wird erzeugt, bleibt aber von Hand änderbar."
     W ws, "S", "F  Lehrplan-Code - z. B. M10.1, bei Prüfungen M10.P."
-    W ws, "S", "G  Thema     H  Kompetenzen     I  Material / Aufgaben"
+    W ws, "S", "G  Thema     H  Kompetenzen     I  Anmerkungen zum Stoff"
     W ws, "S", "J  Erledigt - Kontrollkästchen. Abgehakte Zeilen werden farblich " & _
                "hervorgehoben."
     W ws, "S", "K  Stunde - Auswahlliste: Stofferarbeitung, Vorbereitung SA, " & _
                "SA/KA/kasL, Puffer, Verschiebbar. Je nach Auswahl bekommt " & _
                "die Zeile eine andere Farbe."
     W ws, "S", "L  Hinweis - zeigt automatisch ""1/2 Woche"" bzw. ""1/2 Klasse""."
-    W ws, "S", "M  Notizen - freier Text."
+    W ws, "S", "M  Notizen - freier Text, an die Kalenderwoche gebunden: wandert " & _
+               "beim Neuaufbau mit ihrer Unterrichtswoche, nicht mit der Zeile."
     W ws, "S", "N bis V sind Hilfsspalten der Automatik. Bitte nicht von Hand ändern. " & _
                "In Spalte N steht bei den grauen Zwischenzeilen ein Kennzeichen - " & _
                "in der Hintergrundfarbe geschrieben, also nicht zu sehen. Die " & _
@@ -497,8 +499,8 @@ Private Sub BuildHelpSheet(ByVal ws As Worksheet)
                "Bezeichnung, Std. lt. Lehrplan und die Kompetenzerwartungen " & _
                "(Spalten A bis E und J)."
     W ws, "S", WP_SHEET & ": je Planzeile die Spalten E bis K und M, also " & _
-               "Unterrichtswoche, Lehrplan-Code, Thema, Kompetenzen, Material, das " & _
-               "Erledigt-Häkchen, die Art der Stunde und die Notizen."
+               "Unterrichtswoche, Lehrplan-Code, Thema, Kompetenzen, Anmerkungen " & _
+               "zum Stoff, das Erledigt-Häkchen, die Art der Stunde und die Notizen."
     W ws, "N", "Nicht übernommen wird, was ohnehin berechnet wird: Referenz-Codes, " & _
                "Datum, KW, die Warnspalten, die Ferienzeilen und die Rechenspalten " & _
                "der " & LB_SHEET & ". Das baut die neue Mappe selbst auf - deshalb " & _
