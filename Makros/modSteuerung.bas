@@ -192,12 +192,13 @@ Private Sub EnsureSteuerung()
               "wieder gerade rückt. Er trägt im Blatt """ & WP_SHEET & """ in Spalte E " & _
               "(""UW"") die verfügbaren Unterrichtswochen der Reihe nach ein, setzt die " & _
               "grauen Ferienzeilen an die passenden Stellen und füllt Datum (C) und " & _
-              "KW (D) neu. BESTANDSDATEN BLEIBEN ERHALTEN: was in den Spalten F bis M " & _
-              "steht - Lehrplan-Code, Thema, Kompetenzen, Material, Erledigt-Haken, " & _
-              "Stunde, Hinweis, Notizen - wandert mit seiner Zeile mit und wird nicht " & _
-              "angetastet. Es ändert sich nur, welche Unterrichtswoche neben welcher " & _
-              "Zeile steht. Nach jedem Einfügen, Löschen oder Verschieben von Zeilen " & _
-              "und nach jeder Änderung an der Ferientabelle einmal drücken."
+              "KW (D) neu. BESTANDSDATEN BLEIBEN ERHALTEN: was in den Spalten F bis L " & _
+              "steht - Lehrplan-Code, Thema, Kompetenzen, Anmerkungen zum Stoff, " & _
+              "Erledigt-Haken, Stunde, Hinweis - wandert mit seiner Zeile mit und " & _
+              "wird nicht angetastet. Notizen in Spalte M folgen dagegen ihrer " & _
+              "Unterrichtswoche, falls sich deren Zeile ändert. Nach jedem Einfügen, " & _
+              "Löschen oder Verschieben von Zeilen und nach jeder Änderung an der " & _
+              "Ferientabelle einmal drücken."
     r = r + 2
 
     AddButton ws, r, True, CAP_FIXIEREN, _
