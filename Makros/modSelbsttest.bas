@@ -91,6 +91,7 @@ Public Sub Selbsttest()
     T1b_Zustand ws
     T2_Aktualisieren ws
     T3_Wochen ws
+    T3c_NotizFolgtWoche ws
     T3b_Aufraeumen ws
     T4_Verschieben ws
     T5_EinfuegenLoeschen ws
@@ -483,6 +484,116 @@ Private Sub T3_Wochen(ByVal ws As Worksheet)
               "inhaltliche Warnungen im Plan, kein Makrofehler."
     End If
 End Sub
+
+
+'=====================================================================
+'  3c  Wochenbezogene Notiz folgt der Woche (Issue #67)
+'  ------------------------------------------------------------------
+'  Spalte M haengt an der Kalenderwoche, nicht an der Planzeile: wird
+'  eine fruehere Woche ab- oder wieder angewaehlt, ruecken alle
+'  folgenden Wochen eine Zeile weiter. Ohne die Sicherung in
+'  modKalender.UW_Und_Ferien_Generieren (Schritt 1b) bliebe die Notiz an
+'  ihrer alten Zeile stehen und stuende danach neben der falschen Woche -
+'  genau der Fehler aus Issue #67.
+'=====================================================================
+Private Sub T3c_NotizFolgtWoche(ByVal ws As Worksheet)
+    Dim st As Worksheet
+    Dim cr() As Long, n As Long, i As Long, r As Long, gefunden As Long
+    Dim zielRow As Long, zielWoche As Long, neuZielRow As Long, abwahlRow As Long
+    Const MARKE As String = "SELBSTTEST-M67"
+
+    Abschnitt "3c  Wochenbezogene Notiz folgt der Woche"
+
+    Set st = modWochenplan.SetSheet()
+    If st Is Nothing Then Exit Sub
+
+    ' --- Zielzeile: die ZWEITE Inhaltszeile mit Unterrichtswoche, damit
+    ' sicher eine verfuegbare Woche davor liegt --------------------------
+    n = modWochenplan.ContentRows(ws, modWochenplan.PlanLastRow(ws), cr)
+    gefunden = 0
+    zielRow = 0
+    For i = 1 To n
+        If IsNumeric(ws.Cells(cr(i), "E").Value) Then
+            If Len(T(ws.Cells(cr(i), "E").Value)) > 0 Then
+                gefunden = gefunden + 1
+                If gefunden = 2 Then
+                    zielRow = cr(i)
+                    Exit For
+                End If
+            End If
+        End If
+    Next i
+
+    If zielRow = 0 Then
+        Notiz "Zu wenige Planzeilen mit Unterrichtswoche fuer diesen Test - uebersprungen."
+        Exit Sub
+    End If
+    zielWoche = CLng(ws.Cells(zielRow, "E").Value)
+
+    ' --- Die naechstgelegene verfuegbare Woche VOR der Zielwoche suchen -
+    abwahlRow = 0
+    For r = modWochenplan.WeekFirstRow() To modWochenplan.WeekLastRow()
+        If Len(T(st.Cells(r, "A").Value)) > 0 Then
+            If IsNumeric(st.Cells(r, "A").Value) Then
+                If CLng(st.Cells(r, "A").Value) < zielWoche Then
+                    If IstVerfuegbar(st.Cells(r, "D").Value) Then abwahlRow = r
+                End If
+            End If
+        End If
+    Next r
+
+    If abwahlRow = 0 Then
+        Notiz "Keine verfuegbare Woche vor UW " & zielWoche & " gefunden - Test uebersprungen."
+        Exit Sub
+    End If
+
+    ' --- Notiz-Marke setzen, die vorherige Woche abwaehlen, neu aufbauen -
+    modWochenplan.FastOn ws
+    ws.Cells(zielRow, "M").Value = MARKE
+    st.Cells(abwahlRow, "D").Value = False
+    modWochenplan.FastOff
+
+    modWochenplan.ClearLastError
+    modKalender.UW_Und_Ferien_Generieren
+    Chk "Neuaufbau nach Wochenabwahl ohne Fehlermeldung", modWochenplan.LastError() = "", _
+        modWochenplan.LastError()
+
+    ' --- UW zielWoche muss noch existieren, nur an anderer Stelle -------
+    neuZielRow = 0
+    n = modWochenplan.ContentRows(ws, modWochenplan.PlanLastRow(ws), cr)
+    For i = 1 To n
+        If IsNumeric(ws.Cells(cr(i), "E").Value) Then
+            If CLng(ws.Cells(cr(i), "E").Value) = zielWoche Then
+                neuZielRow = cr(i)
+                Exit For
+            End If
+        End If
+    Next i
+
+    Chk "Unterrichtswoche " & zielWoche & " existiert nach dem Neuaufbau noch", neuZielRow > 0
+    If neuZielRow > 0 Then
+        Chk "Die Woche ist auf eine andere Zeile gerueckt - der Test pruefte " & _
+            "tatsaechlich eine Verschiebung", neuZielRow <> zielRow, _
+            "Zeile vorher/nachher: " & zielRow & "/" & neuZielRow
+        Chk "Notiz """ & MARKE & """ ist mit UW " & zielWoche & " mitgewandert", _
+            T(ws.Cells(neuZielRow, "M").Value) = MARKE, _
+            "Spalte M in Zeile " & neuZielRow & ": """ & T(ws.Cells(neuZielRow, "M").Value) & """"
+    End If
+End Sub
+
+
+'  Wie modKalender.BoolCell (dort Private) - liest die "verfuegbar"-
+'  Checkbox der Kalendertabelle fuer den Testaufbau.
+Private Function IstVerfuegbar(ByVal v As Variant) As Boolean
+    If IsEmpty(v) Then Exit Function
+    If VarType(v) = vbBoolean Then
+        IstVerfuegbar = CBool(v)
+    Else
+        Select Case UCase$(Trim$(CStr(v)))
+            Case "WAHR", "TRUE", "JA", "X", "1": IstVerfuegbar = True
+        End Select
+    End If
+End Function
 
 
 '=====================================================================

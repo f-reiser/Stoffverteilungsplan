@@ -58,9 +58,11 @@ Public Sub UW_Und_Ferien_Generieren()
     Dim wkNr() As Long, wkVon() As Date, wkBis() As Date
     Dim nWeek As Long
     Dim ferVon() As Date, ferBis() As Date, ferNam() As String, nFer As Long
-    Dim lastRow As Long, nPlan As Long, i As Long, r As Long
+    Dim lastRow As Long, nPlan As Long, i As Long, r As Long, j As Long
     Dim startYear As Long
     Dim nSet As Long, nMiss As Long, nIns As Long, nSkip As Long, nLeer As Long
+    Dim altWk() As Long, altNotiz() As String, nAlt As Long, capAlt As Long
+    Dim nNotizMit As Long, nNotizVerloren As Long
     Dim msg As String
 
     Set ws = modWochenplan.WpSheet()
@@ -94,6 +96,33 @@ Public Sub UW_Und_Ferien_Generieren()
         End If
     Next r
 
+    ' --- 1b. wochenbezogene Notizen (Spalte M) sichern -----------------
+    ' M haengt an der Kalenderwoche, nicht an der Planzeile: rueckt eine
+    ' Woche durch Ab- oder Wiederanwahl an eine andere Stelle, muss die
+    ' Notiz mitwandern - sonst steht sie neben der falschen Woche
+    ' (Issue #67). Inhaltsbezogene Anmerkungen gehoeren seit demselben
+    ' Issue in Spalte I und bleiben unangetastet, weil dieser Ablauf sie
+    ' nicht anfasst.
+    modWochenplan.SetStep "Wochenbezogene Notizen sichern"
+    lastRow = modWochenplan.PlanLastRow(ws)
+    capAlt = lastRow - WP_FIRST_ROW + 1
+    If capAlt < 1 Then capAlt = 1
+    ReDim altWk(1 To capAlt)
+    ReDim altNotiz(1 To capAlt)
+    nAlt = 0
+    For r = WP_FIRST_ROW To lastRow
+        If IsNumeric(ws.Cells(r, "E").Value) Then
+            If Len(Trim$(CStr(ws.Cells(r, "E").Value))) > 0 Then
+                If Len(Trim$(CStr(ws.Cells(r, "M").Value))) > 0 Then
+                    nAlt = nAlt + 1
+                    altWk(nAlt) = CLng(ws.Cells(r, "E").Value)
+                    altNotiz(nAlt) = CStr(ws.Cells(r, "M").Value)
+                    ws.Cells(r, "M").ClearContents
+                End If
+            End If
+        End If
+    Next r
+
     ' --- 2. Unterrichtswochen als Werte schreiben ---------------------
     modWochenplan.SetStep "Unterrichtswochen schreiben"
     lastRow = modWochenplan.PlanLastRow(ws)
@@ -103,11 +132,25 @@ Public Sub UW_Und_Ferien_Generieren()
         If i <= nWeek Then
             ws.Cells(r, "E").Value = wkNr(i)
             nSet = nSet + 1
+            For j = 1 To nAlt
+                If altWk(j) = wkNr(i) Then
+                    ws.Cells(r, "M").Value = altNotiz(j)
+                    altWk(j) = -1     ' verbraucht (falls Wochennummern je doppelt vorkaemen)
+                    nNotizMit = nNotizMit + 1
+                    Exit For
+                End If
+            Next j
         Else
             ws.Cells(r, "E").ClearContents
             nMiss = nMiss + 1
         End If
     Next i
+
+    ' Wochen, die keine Planzeile mehr bekommen haben (z. B. weil die
+    ' Woche selbst abgewaehlt wurde), nehmen ihre Notiz mit ins Leere.
+    For j = 1 To nAlt
+        If altWk(j) <> -1 Then nNotizVerloren = nNotizVerloren + 1
+    Next j
 
     ' --- 2b. leere Zeilen am Ende entfernen ---------------------------
     ' Erst jetzt, nachdem die Unterrichtswochen verteilt sind: Zeilen
@@ -148,6 +191,14 @@ Public Sub UW_Und_Ferien_Generieren()
     If nSkip > 0 Then
         msg = msg & vbCrLf & nSkip & " Ferieneintrag/-einträge liegen außerhalb des " & _
               "verplanten Zeitraums und wurden übersprungen."
+    End If
+    If nNotizMit > 0 Then
+        msg = msg & vbCrLf & nNotizMit & " Notiz(en) in Spalte M sind mit ihrer Woche " & _
+              "gewandert."
+    End If
+    If nNotizVerloren > 0 Then
+        msg = msg & vbCrLf & "Achtung: " & nNotizVerloren & " Notiz(en) in Spalte M sind " & _
+              "entfallen, weil die zugehörige Woche nicht mehr eingeplant ist."
     End If
 
     ' Bewusst NICHT zurueck zur Steuerung: nach dem Erzeugen will man
