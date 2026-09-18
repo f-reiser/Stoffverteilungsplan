@@ -44,10 +44,27 @@ Private mGetroffen As Boolean
 '  Prozeduren quittiert Excel das mit "Nach End Sub, End Function oder
 '  End Property koennen nur Kommentare stehen" - und in der Folge mit
 '  "Variable nicht definiert" an jeder Verwendung.
-Private Const MUT_ANZAHL As Long = 10
+Private Const MUT_ANZAHL As Long = 16
 Private mSaveText As String
 Private mSaveZahl As Double
 Private mSaveName As String
+
+'  Nur fuer Mutation 2: vier Zellen quer durch Zeilen und Spalten
+'  statt einer einzigen (siehe Issue #6, 'Mutationen, die zu wenig
+'  abdecken') - mSaveText/-Zahl/-Name reichen dafuer nicht, weil sie
+'  je Mutation nur EINEN Wert merken.
+Private mM2Row(1 To 4) As Long
+Private mM2Col(1 To 4) As String
+Private mM2Val(1 To 4) As String
+
+'  Nur fuer Mutation 15/16: T0_Erreichbarkeit ruft Application.Run
+'  ueber diese Variablen auf statt ueber ein festes Literal, damit
+'  Sabotieren/Zuruecknehmen das Ziel unerreichbar machen und wieder
+'  reparieren kann (Issue #6, 'Application.Run erreicht ein privates
+'  Modul' und 'Gegenprobe modStart' hatten keine Mutation). Leer =
+'  das richtige Ziel.
+Private mZielProbe As String
+Private mZielModStart As String
 
 
 '=====================================================================
@@ -157,13 +174,18 @@ Private Sub T0_Erreichbarkeit(ByVal ws As Worksheet)
     Dim ok As Boolean, i As Long, s As Shape
     Dim wsCtrl As Worksheet, ohne As Long, gefunden As Long
     Dim alle As String, doppelt As Long, doppelName As String
+    Dim zielProbe As String, zielModStart As String
 
     Abschnitt "0  Erreichbarkeit trotz Option Private Module"
 
     ' --- 1. Application.Run in ein Modul mit Option Private Module ---
+    '  Ueber zielProbe statt eines Literals, damit Mutation 15 das Ziel
+    '  unerreichbar machen kann (siehe mZielProbe oben).
+    zielProbe = mZielProbe
+    If Len(zielProbe) = 0 Then zielProbe = "modWochenplan.SelbsttestProbe"
     On Error Resume Next
     Err.Clear
-    Application.Run "modWochenplan.SelbsttestProbe"
+    Application.Run zielProbe
     ok = (Err.Number = 0)
     If Not ok Then Notiz "Fehler " & Err.Number & ": " & Err.Description
     Err.Clear
@@ -172,9 +194,11 @@ Private Sub T0_Erreichbarkeit(ByVal ws As Worksheet)
         "Namen erreichbar", ok And modWochenplan.ProbeGelaufen()
 
     ' --- 2. Der Weg ueber modStart (dort steht die Zeile NICHT) ------
+    zielModStart = mZielModStart
+    If Len(zielModStart) = 0 Then zielModStart = "modStart.Probe_modStart"
     On Error Resume Next
     Err.Clear
-    Application.Run "modStart.Probe_modStart"
+    Application.Run zielModStart
     ok = (Err.Number = 0)
     Err.Clear
     On Error GoTo 0
@@ -834,6 +858,10 @@ Private Sub T8_Kopf(ByVal ws As Worksheet)
     Dim titel As String, logoDa As Boolean
     Dim bereich As String, ausrichtung As Long, wiederhol As String
     Dim gelesen As Boolean
+    Dim kopfL As String, kopfM As String, kopfR As String, fuss As String
+    Dim papier As Long, zoomAus As Boolean, breiteSeiten As Long, hoeheSeiten As Boolean
+    Dim merker As Collection, wsx As Worksheet
+    Dim vorherSichtbar As String, abwWeg As Long
 
     Abschnitt "8  Titelblock und PDF"
 
@@ -933,6 +961,14 @@ Private Sub T8_Kopf(ByVal ws As Worksheet)
     bereich = ws.PageSetup.PrintArea
     ausrichtung = ws.PageSetup.Orientation
     wiederhol = ws.PageSetup.PrintTitleRows
+    kopfL = ws.PageSetup.LeftHeader
+    kopfM = ws.PageSetup.CenterHeader
+    kopfR = ws.PageSetup.RightHeader
+    fuss = ws.PageSetup.CenterFooter
+    papier = ws.PageSetup.PaperSize
+    zoomAus = (ws.PageSetup.Zoom = False)
+    breiteSeiten = ws.PageSetup.FitToPagesWide
+    hoeheSeiten = (ws.PageSetup.FitToPagesTall = False)
     gelesen = (Err.Number = 0)
     Err.Clear
     On Error GoTo 0
@@ -946,6 +982,21 @@ Private Sub T8_Kopf(ByVal ws As Worksheet)
             InStr(1, bereich, "$" & modKopf.PDF_WP_SPALTE_LETZTE & "$", vbTextCompare) > 0, _
             "'" & bereich & "'"
         Chk "Querformat ist eingestellt", ausrichtung = xlLandscape
+
+        ' --- Kopf- und Fusszeile im PDF (der &Z-Vorfall) --------------
+        '  Bis 03.09.2026 stand dort noch die alte Kopfzeile mit &Z, dem
+        '  vollstaendigen Dateipfad der Mappe (SharePoint-Adresse ueber
+        '  jeder Seite). modKopf.SeiteEinrichten loescht sie seither und
+        '  prueft sich selbst gegen - bisher stand dazu kein einziger
+        '  Check hier (Issue #6, "PDF-Ausgabe ist komplett ungeprueft").
+        Chk "Keine Kopfzeile im PDF (kein Dateipfad, kein &Z)", _
+            (Len(kopfL) = 0 And Len(kopfM) = 0 And Len(kopfR) = 0), _
+            "'" & kopfL & "' / '" & kopfM & "' / '" & kopfR & "'"
+        Chk "Fusszeile zeigt die Seitenzahl", _
+            (InStr(1, fuss, "&P") > 0 And InStr(1, fuss, "&N") > 0), "'" & fuss & "'"
+        Chk "Papierformat ist A4", papier = xlPaperA4
+        Chk "Die Tabelle wird auf die Seitenbreite skaliert", _
+            zoomAus And breiteSeiten = 1 And hoeheSeiten
         Chk "Die Überschriftenzeile wird auf jeder Seite wiederholt", _
             InStr(1, wiederhol, "$" & kopfNachher & ":", vbTextCompare) > 0, _
             "'" & wiederhol & "'"
@@ -956,6 +1007,59 @@ Private Sub T8_Kopf(ByVal ws As Worksheet)
     modWochenplan.SeitenumbruecheAus
     Chk "Die gestrichelten Seitenumbruchlinien sind aus", _
         ws.DisplayPageBreaks = False
+
+    ' --- Seiteneinrichtung des zweiten Blattes ------------------------
+    '  PDF_Export richtet WOCHENPLAN UND LERNBEREICHE ein - bisher wurde
+    '  hier nur das erste geprueft (Issue #6).
+    If Not lb Is Nothing Then
+        modWochenplan.ClearLastError
+        modKopf.SeiteFuerPdfEinrichten lb, xlPaperA4
+        Chk "Seiteneinrichtung " & LB_SHEET & " ohne Fehlermeldung", _
+            modWochenplan.LastError() = "", modWochenplan.LastError()
+        Chk "Keine Kopfzeile im PDF (" & LB_SHEET & ")", _
+            Len(lb.PageSetup.LeftHeader) = 0 And Len(lb.PageSetup.CenterHeader) = 0 _
+            And Len(lb.PageSetup.RightHeader) = 0
+        Chk "Druckbereich " & LB_SHEET & " beginnt in Spalte " & _
+            modKopf.PDF_LB_SPALTE_ERSTE & " Zeile 1", _
+            InStr(1, lb.PageSetup.PrintArea, "$" & modKopf.PDF_LB_SPALTE_ERSTE & "$1:", _
+                  vbTextCompare) > 0, "'" & lb.PageSetup.PrintArea & "'"
+        Chk "Querformat ist auch fuer " & LB_SHEET & " eingestellt", _
+            lb.PageSetup.Orientation = xlLandscape
+        Chk "Papierformat ist auch fuer " & LB_SHEET & " A4", _
+            lb.PageSetup.PaperSize = xlPaperA4
+    End If
+
+    ' --- Fuer den Export werden alle anderen Blaetter kurz versteckt --
+    '  AndereBlaetterVerbergen/BlaetterWiederZeigen liefen bisher nur
+    '  innerhalb von modKopf.PDF_Export - ungeprueft, weil PDF_Export
+    '  selbst einen Datei-Dialog oeffnet und eine echte PDF-Datei
+    '  hinterlaesst. Direkt aufgerufen laesst sich der Rundlauf ohne
+    '  beides pruefen (Issue #6); dafuer sind die beiden Subs in
+    '  modKopf jetzt Public, wie schon SeiteFuerPdfEinrichten.
+    vorherSichtbar = "|"
+    For Each wsx In ThisWorkbook.Worksheets
+        If wsx.Visible = xlSheetVisible Then vorherSichtbar = vorherSichtbar & wsx.Name & "|"
+    Next wsx
+
+    modKopf.AndereBlaetterVerbergen merker
+    abwWeg = 0
+    For Each wsx In ThisWorkbook.Worksheets
+        If wsx.Name <> WP_SHEET And wsx.Name <> LB_SHEET Then
+            If wsx.Visible = xlSheetVisible Then abwWeg = abwWeg + 1
+        End If
+    Next wsx
+    Chk "Fuer den PDF-Export sind nur " & WP_SHEET & " und " & LB_SHEET & " sichtbar", _
+        (abwWeg = 0), abwWeg & " Blatt/Blaetter blieben sichtbar"
+
+    modKopf.BlaetterWiederZeigen merker
+    abwWeg = 0
+    For Each wsx In ThisWorkbook.Worksheets
+        If (InStr(1, vorherSichtbar, "|" & wsx.Name & "|") > 0) <> (wsx.Visible = xlSheetVisible) Then
+            abwWeg = abwWeg + 1
+        End If
+    Next wsx
+    Chk "Nach dem Export sind alle Blaetter wie vorher sichtbar oder versteckt", _
+        (abwWeg = 0), abwWeg & " Blatt/Blaetter weichen ab"
 End Sub
 
 
@@ -1023,15 +1127,17 @@ End Sub
 Private Sub T10_Uebernahme(ByVal ws As Worksheet)
     Dim tmp As String, altName As String
     Dim nPlan As Long, nLb As Long, nWo As Long, nFer As Long
-    Dim sollPlan() As String, sollLb() As String
-    Dim nSollPlan As Long, nSollLb As Long
-    Dim cr() As Long, n As Long, i As Long
+    Dim sollPlan() As String, sollLb() As String, sollFer() As String
+    Dim nSollPlan As Long, nSollLb As Long, nSollFer As Long
+    Dim cr() As Long, n As Long, i As Long, r As Long
     Dim lastRow As Long, abw As Long, ersteAbw As String
-    Dim zl As Worksheet, zSum As Long
+    Dim zl As Worksheet, zSum As Long, st As Worksheet
+    Dim sollFach As String, sollKlasse As String, sollSchule As String, sollLehrer As String
 
     Abschnitt "10  Uebernahme aus einer bisherigen Datei"
 
     Set zl = modWochenplan.LbSheet()
+    Set st = modWochenplan.SetSheet()
     If zl Is Nothing Then
         Chk "Blatt " & LB_SHEET & " vorhanden", False
         Exit Sub
@@ -1059,6 +1165,26 @@ Private Sub T10_Uebernahme(ByVal ws As Worksheet)
             sollLb(i) = LbZeileText(zl, modWochenplan.LB_FIRST_ROW() + i - 1)
         Next i
     End If
+
+    '  Kalender, Ferientabelle und Kopfangaben hatten hier bisher keinen
+    '  eigenen Sollwert - MappeLeeren raeumt sie jetzt mit leer (Issue
+    '  #6), deshalb muessen sie wie Plan und Lernbereiche VOR dem Leeren
+    '  gemerkt werden.
+    nSollFer = 0
+    For r = modWochenplan.FerFirstRow() To modWochenplan.FerLastRow()
+        If Not IsDate(st.Cells(r, FER_COL_VON).Value) Then Exit For
+        nSollFer = nSollFer + 1
+    Next r
+    If nSollFer > 0 Then
+        ReDim sollFer(1 To nSollFer)
+        For i = 1 To nSollFer
+            sollFer(i) = FerZeileText(st, modWochenplan.FerFirstRow() + i - 1)
+        Next i
+    End If
+    sollFach = KopfWertTest(st, modWochenplan.KopfZeileFach())
+    sollKlasse = KopfWertTest(st, modWochenplan.KopfZeileKlasse())
+    sollSchule = KopfWertTest(st, modWochenplan.KopfZeileSchule())
+    sollLehrer = KopfWertTest(st, modWochenplan.KopfZeileLehrer())
 
     ' --- 2. Kopie anlegen --------------------------------------------
     tmp = TempPfad("Uebernahme_Quelle.xlsm")
@@ -1101,6 +1227,16 @@ Private Sub T10_Uebernahme(ByVal ws As Worksheet)
     Chk "Schulwochen-Kalender uebernommen", _
         (nWo = modWochenplan.WeekLastRow() - modWochenplan.WeekFirstRow() + 1), _
         "uebernommen: " & nWo
+    Chk "alle " & nSollFer & " Ferienzeitraeume uebernommen", (nFer = nSollFer), _
+        "uebernommen: " & nFer
+    Chk "Kopfangabe """ & LBL_FACH & """ uebernommen", _
+        (KopfWertTest(st, modWochenplan.KopfZeileFach()) = sollFach)
+    Chk "Kopfangabe """ & LBL_KLASSE & """ uebernommen", _
+        (KopfWertTest(st, modWochenplan.KopfZeileKlasse()) = sollKlasse)
+    Chk "Kopfangabe """ & LBL_SCHULE & """ uebernommen", _
+        (KopfWertTest(st, modWochenplan.KopfZeileSchule()) = sollSchule)
+    Chk "Kopfangabe """ & LBL_LEHRER & """ uebernommen", _
+        (KopfWertTest(st, modWochenplan.KopfZeileLehrer()) = sollLehrer)
 
     ' --- 5. Zelle fuer Zelle vergleichen ------------------------------
     lastRow = modWochenplan.PlanLastRow(ws)
@@ -1130,6 +1266,16 @@ Private Sub T10_Uebernahme(ByVal ws As Worksheet)
         End If
     Next i
     Chk "Lernbereiche Zelle fuer Zelle gleich", (abw = 0), _
+        abw & " Abweichung(en); " & ersteAbw
+
+    abw = 0: ersteAbw = ""
+    For i = 1 To nSollFer
+        If FerZeileText(st, modWochenplan.FerFirstRow() + i - 1) <> sollFer(i) Then
+            abw = abw + 1
+            If ersteAbw = "" Then ersteAbw = "Ferienzeitraum " & i
+        End If
+    Next i
+    Chk "Ferientabelle Zelle fuer Zelle gleich", (abw = 0), _
         abw & " Abweichung(en); " & ersteAbw
 
     ' --- 6. Die Summenzeile muss die Datenzeilen treffen --------------
@@ -1230,11 +1376,19 @@ Private Function LbZeileText(ByVal ws As Worksheet, ByVal r As Long) As String
 End Function
 
 
+Private Function FerZeileText(ByVal st As Worksheet, ByVal r As Long) As String
+    FerZeileText = Trim$(CStr(st.Cells(r, FER_COL_VON).Value)) & "|" & _
+                   Trim$(CStr(st.Cells(r, FER_COL_BIS).Value)) & "|" & _
+                   Trim$(CStr(st.Cells(r, FER_COL_NAME).Value))
+End Function
+
+
 '  Wochenplan und Lernbereiche in den Zustand einer frischen Vorlage
 '  bringen: eine leere Planzeile, keine Lernbereiche. Der Blattschutz
 '  muss dafuer aus sein - deshalb FastOn/FastOff drumherum.
 Private Sub MappeLeeren(ByVal ws As Worksheet, ByVal zl As Worksheet)
     Dim lastRow As Long, erste As Long, zSum As Long
+    Dim st As Worksheet, w1 As Long, w2 As Long
 
     modWochenplan.FastOn
     erste = modWochenplan.WP_FIRST_ROW()
@@ -1247,8 +1401,39 @@ Private Sub MappeLeeren(ByVal ws As Worksheet, ByVal zl As Worksheet)
         zl.Range(zl.Cells(modWochenplan.LB_FIRST_ROW(), "A"), _
                  zl.Cells(zSum - 1, "J")).ClearContents
     End If
+
+    '  Kalender, Ferientabelle und Kopfangaben blieben hier bisher
+    '  stehen - T10_Uebernahme verglich damit zwei Seiten derselben nie
+    '  geleerten Tabelle und war unabhaengig vom Ergebnis immer gruen
+    '  (Issue #6, "Abschnitt 10 prueft die Uebernahme der Einstellungen
+    '  nicht"). WeekLastRow() ist inhaltsbasiert (zaehlt Zahlen in
+    '  Spalte 1) - deshalb VOR dem Leeren merken, bis wohin geleert
+    '  werden muss.
+    Set st = modWochenplan.SetSheet()
+    If Not st Is Nothing Then
+        w1 = modWochenplan.WeekFirstRow()
+        w2 = modWochenplan.WeekLastRow()
+        If w2 >= w1 Then st.Range(st.Cells(w1, 1), st.Cells(w2, 6)).ClearContents
+
+        '  Ferientabelle: fester Zeilenbereich (FER_ROWS), unabhaengig
+        '  vom Inhalt - siehe modKalender.Einstellungen_Erweitern.
+        st.Range(st.Cells(modWochenplan.FerFirstRow(), FER_COL_VON), _
+                 st.Cells(modWochenplan.FerLastRow(), FER_COL_NAME)).ClearContents
+
+        KopfangabeLeeren st, modWochenplan.KopfZeileFach()
+        KopfangabeLeeren st, modWochenplan.KopfZeileKlasse()
+        KopfangabeLeeren st, modWochenplan.KopfZeileSchule()
+        KopfangabeLeeren st, modWochenplan.KopfZeileLehrer()
+    End If
+
     modWochenplan.ResetKopfzeilen
     modWochenplan.FastOff
+End Sub
+
+
+Private Sub KopfangabeLeeren(ByVal st As Worksheet, ByVal zeile As Long)
+    If zeile <= 0 Then Exit Sub
+    st.Cells(zeile, modWochenplan.KopfCol() + 1).ClearContents
 End Sub
 
 
@@ -1415,7 +1600,7 @@ End Sub
 Private Function MutName(ByVal i As Long) As String
     Select Case i
         Case 1: MutName = "Leerzeile unter der Tabelle"
-        Case 2: MutName = "Rechenspalte F der Lernbereiche geleert"
+        Case 2: MutName = "Rechenspalten F bis I quer durch die Lernbereiche geleert"
         Case 3: MutName = "Summenformel auf einen falschen Bereich gestellt"
         Case 4: MutName = "Kennzeichen einer Ferienzeile entfernt"
         Case 5: MutName = "Blatt ""Update"" wieder angelegt"
@@ -1424,6 +1609,12 @@ Private Function MutName(ByVal i As Long) As String
         Case 8: MutName = "Unterrichtswochen verdreht"
         Case 9: MutName = "Makro von einer Schaltflaeche entfernt"
         Case 10: MutName = "zwei Schaltflaechen mit demselben Makro"
+        Case 11: MutName = "Makro einer Zeilen-Schaltflaeche im Wochenplan entfernt"
+        Case 12: MutName = "Beschriftung der Summenzeile entfernt"
+        Case 13: MutName = "Summenzeile von der letzten Lernbereichszeile weggerueckt"
+        Case 14: MutName = "Blatt ""Anleitung"" umbenannt"
+        Case 15: MutName = "Application.Run zeigt auf ein falsches Ziel (modWochenplan)"
+        Case 16: MutName = "Application.Run zeigt auf ein falsches Ziel (modStart)"
     End Select
 End Function
 
@@ -1440,20 +1631,29 @@ Private Function MutErwartet(ByVal i As Long) As String
         Case 8: MutErwartet = "rueckwaerts"
         Case 9: MutErwartet = "zeigen auf ein Makro"
         Case 10: MutErwartet = "eigenes Makro"
+        Case 11: MutErwartet = "Makro hinterlegt"
+        Case 12: MutErwartet = "Summenzeile gefunden"
+        Case 13: MutErwartet = "Summenzeile steht direkt"
+        Case 14: MutErwartet = "Blatt Anleitung vorhanden"
+        Case 15: MutErwartet = "ueber seinen Namen erreichbar"
+        Case 16: MutErwartet = "modStart (ohne Option Private Module) ist erreichbar"
     End Select
 End Function
 
 
 Private Function MutAbschnitt(ByVal i As Long) As Long
-    If i >= 9 Then MutAbschnitt = 0 Else MutAbschnitt = 1
+    Select Case i
+        Case 9, 10, 11, 15, 16: MutAbschnitt = 0     ' T0_Erreichbarkeit
+        Case Else: MutAbschnitt = 1                  ' T1b_Zustand
+    End Select
 End Function
 
 
 '  Sabotage und Ruecknahme stehen bewusst direkt untereinander -
 '  so faellt sofort auf, wenn eine Ruecknahme nicht zur Sabotage passt.
 Private Sub Sabotieren(ByVal i As Long, ByVal ws As Worksheet)
-    Dim zl As Worksheet, r As Long, z1 As Long, zSum As Long
-    Dim neu As Worksheet, s As Shape, s1 As Shape
+    Dim zl As Worksheet, r As Long, z1 As Long, zSum As Long, zLetzte As Long
+    Dim neu As Worksheet, s As Shape, s1 As Shape, i2 As Long
 
     Set zl = modWochenplan.LbSheet()
     Select Case i
@@ -1465,11 +1665,23 @@ Private Sub Sabotieren(ByVal i As Long, ByVal ws As Worksheet)
             ws.Rows(r).RowHeight = ws.Rows(r - 1).RowHeight
             modWochenplan.FastOff
 
-        Case 2      ' Rechenspalte F leeren
+        Case 2      ' Rechenspalten F bis I quer durch die Lernbereiche leeren
+            '  Nicht nur die erste Zeile und Spalte F: der Check laeuft
+            '  ueber ALLE Zeilen und die Spalten F bis I - eine Mutation,
+            '  die nur eine einzige Zelle trifft, weist das nie nach
+            '  (Issue #6, "Mutationen, die zu wenig abdecken").
             z1 = modWochenplan.LB_FIRST_ROW()
+            zSum = modWochenplan.LbSummeRow(zl)
+            zLetzte = modWochenplan.LbLastDataRow(zl, zSum)
             modWochenplan.FastOn
-            mSaveText = zl.Cells(z1, "F").Formula
-            zl.Cells(z1, "F").ClearContents
+            mM2Row(1) = z1: mM2Col(1) = "F"
+            mM2Row(2) = z1 + (zLetzte - z1) \ 2: mM2Col(2) = "G"
+            mM2Row(3) = z1 + (zLetzte - z1) \ 2: mM2Col(3) = "H"
+            mM2Row(4) = zLetzte: mM2Col(4) = "I"
+            For i2 = 1 To 4
+                mM2Val(i2) = zl.Cells(mM2Row(i2), mM2Col(i2)).Formula
+                zl.Cells(mM2Row(i2), mM2Col(i2)).ClearContents
+            Next i2
             modWochenplan.FastOff
 
         Case 3      ' Summenformel auf einen falschen Bereich
@@ -1547,12 +1759,60 @@ Private Sub Sabotieren(ByVal i As Long, ByVal ws As Worksheet)
                 s.OnAction = s1.OnAction
             End If
 
+        Case 11     ' einer Zeilen-Schaltflaeche IM WOCHENPLAN das Makro nehmen
+            '  Dasselbe wie Mutation 9, aber fuer die wpBtn-Schaltflaechen
+            '  in der Planzeile statt fuer das Blatt "Steuerung" (Issue #6).
+            For i2 = 1 To ws.Shapes.Count
+                Set s = ws.Shapes(i2)
+                If Left$(s.Name, 5) = "wpBtn" And Len(s.OnAction) > 0 Then
+                    mSaveName = s.Name
+                    mSaveText = s.OnAction
+                    s.OnAction = ""
+                    Exit For
+                End If
+            Next i2
+
+        Case 12     ' Beschriftung der Summenzeile entfernen
+            zSum = modWochenplan.LbSummeRow(zl)
+            modWochenplan.FastOn
+            mSaveZahl = zSum
+            mSaveText = CStr(zl.Cells(zSum, "D").Value)
+            zl.Cells(zSum, "D").ClearContents
+            modWochenplan.FastOff
+
+        Case 13     ' Summenzeile von der letzten Lernbereichszeile wegruecken
+            '  Nicht die ganze Zeile verschieben (das riskiert Formeln und
+            '  bedingte Formatierung), nur die Beschriftung eine Zeile
+            '  tiefer setzen - LbSummeRow findet sie dann dort.
+            zSum = modWochenplan.LbSummeRow(zl)
+            modWochenplan.FastOn
+            mSaveZahl = zSum
+            mSaveText = CStr(zl.Cells(zSum, "D").Value)
+            zl.Cells(zSum, "D").ClearContents
+            zl.Cells(zSum + 1, "D").Value = mSaveText
+            modWochenplan.FastOff
+
+        Case 14     ' Blatt "Anleitung" umbenennen
+            On Error Resume Next
+            Application.DisplayAlerts = False
+            ThisWorkbook.Unprotect SCHUTZ_PW
+            ThisWorkbook.Worksheets(modAnleitung.SHEET_HELP).Name = "AnleitungWeg"
+            ThisWorkbook.Protect Password:=SCHUTZ_PW, Structure:=True, Windows:=False
+            Application.DisplayAlerts = True
+            On Error GoTo 0
+
+        Case 15     ' Application.Run auf ein nicht vorhandenes Ziel in modWochenplan
+            mZielProbe = "modWochenplan.GibtEsNicht"
+
+        Case 16     ' Application.Run auf ein nicht vorhandenes Ziel in modStart
+            mZielModStart = "modStart.GibtEsNicht"
+
     End Select
 End Sub
 
 
 Private Sub Zuruecknehmen(ByVal i As Long, ByVal ws As Worksheet)
-    Dim zl As Worksheet, r As Long, z1 As Long, zSum As Long, s As Shape
+    Dim zl As Worksheet, r As Long, z1 As Long, zSum As Long, s As Shape, i2 As Long
 
     Set zl = modWochenplan.LbSheet()
     Select Case i
@@ -1564,9 +1824,10 @@ Private Sub Zuruecknehmen(ByVal i As Long, ByVal ws As Worksheet)
             modWochenplan.FastOff
 
         Case 2
-            z1 = modWochenplan.LB_FIRST_ROW()
             modWochenplan.FastOn
-            zl.Cells(z1, "F").Formula = mSaveText
+            For i2 = 1 To 4
+                zl.Cells(mM2Row(i2), mM2Col(i2)).Formula = mM2Val(i2)
+            Next i2
             modWochenplan.FastOff
 
         Case 3
@@ -1612,6 +1873,44 @@ Private Sub Zuruecknehmen(ByVal i As Long, ByVal ws As Worksheet)
         Case 9, 10
             Set s = FormNachName(mSaveName)
             If Not s Is Nothing Then s.OnAction = mSaveText
+
+        Case 11
+            '  FormNachName sucht nur im Blatt "Steuerung" - die
+            '  Zeilen-Schaltflaeche steht im Wochenplan (ws).
+            On Error Resume Next
+            Set s = ws.Shapes(mSaveName)
+            On Error GoTo 0
+            If Not s Is Nothing Then s.OnAction = mSaveText
+
+        Case 12
+            If mSaveZahl > 0 Then
+                modWochenplan.FastOn
+                zl.Cells(CLng(mSaveZahl), "D").Value = mSaveText
+                modWochenplan.FastOff
+            End If
+
+        Case 13
+            If mSaveZahl > 0 Then
+                modWochenplan.FastOn
+                zl.Cells(CLng(mSaveZahl) + 1, "D").ClearContents
+                zl.Cells(CLng(mSaveZahl), "D").Value = mSaveText
+                modWochenplan.FastOff
+            End If
+
+        Case 14
+            On Error Resume Next
+            Application.DisplayAlerts = False
+            ThisWorkbook.Unprotect SCHUTZ_PW
+            ThisWorkbook.Worksheets("AnleitungWeg").Name = modAnleitung.SHEET_HELP
+            ThisWorkbook.Protect Password:=SCHUTZ_PW, Structure:=True, Windows:=False
+            Application.DisplayAlerts = True
+            On Error GoTo 0
+
+        Case 15
+            mZielProbe = ""
+
+        Case 16
+            mZielModStart = ""
 
     End Select
 End Sub
