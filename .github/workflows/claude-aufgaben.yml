@@ -19,7 +19,7 @@ on:
 
 jobs:
   claude-aufgaben:
-    uses: f-reiser/reiser-flow/.github/workflows/claude-aufgaben.yml@v2.0.0
+    uses: f-reiser/reiser-flow/.github/workflows/claude-aufgaben.yml@reiser-flow--v2.0.0
 
     #  Ein aufgerufener Workflow kann Berechtigungen nur senken, nie erhoehen -
     #  was hier fehlt, bekommt er auch dann nicht, wenn er es selbst anfordert.

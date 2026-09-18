@@ -50,7 +50,7 @@ jobs:
   vermerken:
     needs: pruefung
     if: always()
-    uses: f-reiser/reiser-flow/.github/workflows/pruefung-vermerken.yml@v2.0.0
+    uses: f-reiser/reiser-flow/.github/workflows/pruefung-vermerken.yml@reiser-flow--v2.0.0
     permissions:
       contents: read
       issues: write
