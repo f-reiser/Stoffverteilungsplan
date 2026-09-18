@@ -94,9 +94,18 @@ Stoffverteilungsplan/
 ├─ Bilder/                    Schullogos
 ├─ Diagnose/                  hier legt der Nutzer Testberichte ab (nicht im Repo)
 ├─ *.xlsm                     Ergebnis, nicht Quelle (nicht im Repo)
-├─ .github/workflows/         CI: ruft Makros/pruefe_alles.py bei jedem Push
+├─ .github/workflows/         nur noch Aufrufe — die Workflows selbst liegen in
+│                             f-reiser/reiser-flow, hier steht Wann und Was-ist-hier-anders
 └─ Doku/                      diese Übergabe
 ```
+
+**Die Automatik gehört nicht mehr diesem Projekt.** `claude-aufgaben.yml` (der
+Vier-Stunden-Lauf), `label-waechter.yml` und die acht Python-Skripte, an denen sie hingen,
+liegen seit dem 18.09.2026 in `f-reiser/reiser-flow` und werden von dort über einen Tag
+geholt. Hier stehen nur noch drei kurze Aufrufe. Wer an der Automatik etwas ändern will,
+ändert sie **dort** — eine Änderung hier hätte nur in diesem Projekt Wirkung, und genau das
+war der Grund für den Umzug. Was bleibt: `pruefung.yml` ruft weiterhin
+`Makros/pruefe_alles.py`, denn *was* geprüft wird, ist Sache dieses Projekts.
 
 **Vor jeder Auslieferung und nach jeder Änderung an den Modulen:**
 

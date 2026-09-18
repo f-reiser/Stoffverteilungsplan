@@ -1,27 +1,29 @@
 name: Pruefung
 
-# Laeuft bei jedem Push und bei jedem Pull Request. Ruft genau dasselbe
-# Skript auf, das auch lokal laeuft (Makros/pruefe_alles.py) - damit
-# koennen Arbeitsplatz und Pipeline nicht auseinanderlaufen.
+# Laeuft bei jedem Push und bei jedem Pull Request. Ruft genau dasselbe Skript
+# auf, das auch lokal laeuft (Makros/pruefe_alles.py) - damit koennen Arbeitsplatz
+# und Pipeline nicht auseinanderlaufen.
 #
 # Was hier NICHT laufen kann:
 #   Ebene 4/5  Selbsttest und Mutationstest brauchen echtes Excel.
 #   Ebene 9    Fremde Gegenlese braucht ein Sprachmodell.
 # Beides steht in Doku/Testebenen.md.
+#
+# Hier steht nur noch, WAS dieses Projekt prueft. Die Selbsttests der gemeinsamen
+# Skripte laufen dort, wo diese Skripte liegen und geaendert werden - in
+# f-reiser/reiser-flow. Dieses Projekt haette nichts davon, sie bei jedem Push
+# mitzunehmen.
 
 on:
   push:
   pull_request:
   workflow_dispatch:
 
-permissions:
-  contents: read
-  issues: write
-  pull-requests: write
-
 jobs:
   pruefung:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       # Beide auf Node 24. Mit checkout@v4 / setup-python@v5 haengte GitHub
       # jedem gruenen Lauf eine Deprecation-Warnung an - und eine Warnung,
@@ -39,90 +41,19 @@ jobs:
       - name: Alle automatisierbaren Pruefebenen
         run: python Makros/pruefe_alles.py
 
-      #  Die Zuordnung entscheidet, an welchem Vorgang der naechste
-      #  unbeaufsichtigte Lauf weiterarbeitet. Ein Fehler darin faellt sonst
-      #  erst auf, wenn ein abgebrochener Vorgang doppelt angefangen wird.
-      - name: Zuordnung Vorgang zu Branch
-        run: python .github/zuordnung.py --selbsttest
-
-      #  Ein Fehler hier wirkt sich auf Modellwahl UND Label-Schutz aus, faellt
-      #  aber nur an einer der beiden Stellen auf.
-      - name: Scoped Labels erkennen
-        run: python .github/scoped_labels.py --selbsttest
-
-      #  Modell und Aufwand entscheiden, was ein Lauf kostet. Ein Fehler in der
-      #  Zuordnung von Label zu Modell faellt sonst erst an der Rechnung auf.
-      - name: Modellwahl aus den Labels
-        run: python .github/modellwahl.py --selbsttest
-
-      #  Entscheidet, wer die Steuerlabel setzen darf. Ein Fehler hier faellt
-      #  sonst erst auf, wenn jemand mit zu wenig oder zu viel Recht ein Label
-      #  setzt - siehe label-waechter.yml.
-      - name: Berechtigung fuer die Steuerlabel
-        run: python .github/berechtigt.py --selbsttest
-
-      #  Bricht das Blockzitat des Fortschrittskommentars auf, steht die Haelfte
-      #  des Standes als Fliesstext im Vorgang - und findet die Marke ihn nicht
-      #  wieder, legt jeder Lauf einen neuen an.
-      - name: Fortschrittskommentar
-        run: python .github/fortschritt.py --selbsttest
-
-      #  Liest eine Datei, deren Aufbau nicht zugesagt ist. Findet es etwas
-      #  nicht, MUSS dort 'nicht ermittelbar' stehen - eine erfundene Zahl
-      #  waere schlimmer als gar keine.
-      - name: Abschlusskommentar
-        run: python .github/abschluss.py --selbsttest
-
-      #  Das Ergebnis dort hinterlassen, wo ein Folgelauf ohnehin nachsieht.
-      #
-      #  Ein Lauf, der eine angefangene Arbeit aufnimmt, muss als Erstes wissen:
-      #  Stand der Branch zuletzt gruen? Diese Antwort lag bisher nur im
-      #  Actions-Verlauf - er muesste sie sich zusammensuchen, und dafuer bezahlt
-      #  jemand Modellzeit. Jetzt steht sie im Fortschrittskommentar des Vorgangs,
-      #  also in genau dem Text, den der Prompt ihn zuerst lesen heisst.
-      #
-      #  Nur auf Branches nach dem Schema issue-<nr>-*: Nur dort gibt es einen
-      #  Vorgang, zu dem das Ergebnis gehoert. Und nur ANHAENGEN, nie anlegen -
-      #  sonst entstuende der Kommentar auch an Vorgaengen, an denen gar kein
-      #  unbeaufsichtigter Lauf arbeitet.
-      - name: Ergebnis im Vorgang vermerken
-        if: always() && startsWith(github.head_ref || github.ref_name, 'issue-')
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ERGEBNIS: ${{ job.status }}
-          #  head_ref ist bei pull_request der Quellbranch; ref_name waere
-          #  dort '<nr>/merge'. Bei push ist head_ref leer.
-          BRANCH: ${{ github.head_ref || github.ref_name }}
-        run: |
-          REST=${BRANCH#issue-}
-          NR=${REST%%-*}
-          case $NR in
-            ''|*[!0-9]*)
-              echo 'Branchname ohne Vorgangsnummer - nichts zu vermerken.'
-              exit 0 ;;
-          esac
-
-          #  Auf einem Branch mit Pull Request laeuft die Pruefung zweimal, einmal
-          #  je Ereignis. Ohne diese Schranke stuenden zwei gleiche Zeilen im
-          #  Kommentar. Der push-Lauf tritt zurueck; der pull_request-Lauf
-          #  berichtet, denn den gibt es auch dann, wenn der Push selbst keinen
-          #  Lauf ausgeloest hat.
-          if [ "$GITHUB_EVENT_NAME" = push ] \
-             && [ -n "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
-            echo 'Es gibt einen offenen Pull Request - der pull_request-Lauf vermerkt.'
-            exit 0
-          fi
-          if [ "$ERGEBNIS" = success ]; then
-            STAND='**gruen**'
-          else
-            STAND='**ROT** - hier weitermachen, bevor irgendetwas anderes kommt'
-          fi
-          LAUF=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
-          python3 .github/fortschritt.py vermerk "$NR" \
-            "Pruefung $STAND fuer \`${GITHUB_SHA:0:7}\` auf \`$BRANCH\` ([Lauf]($LAUF))."
-
-      #  Welche Label ueberhaupt geschuetzt sind. Ein Fehler hier faellt sonst
-      #  erst auf, wenn ein scoped Label ungeschuetzt bleibt oder ein fremdes
-      #  Label faelschlich zurueckgenommen wird - siehe label-waechter.yml.
-      - name: Welche Label geschuetzt sind
-        run: python .github/geschuetzt.py --selbsttest
+  #  Das Ergebnis dort hinterlassen, wo ein Folgelauf ohnehin nachsieht: im
+  #  Fortschrittskommentar des Vorgangs. Ein Lauf, der eine angefangene Arbeit
+  #  aufnimmt, muss als Erstes wissen, ob der Branch zuletzt gruen stand -
+  #  diese Antwort aus dem Actions-Verlauf zusammenzusuchen kostet Modellzeit.
+  #
+  #  "if: always()" ist nicht optional: Gerade das ROTE Ergebnis soll ankommen.
+  vermerken:
+    needs: pruefung
+    if: always()
+    uses: f-reiser/reiser-flow/.github/workflows/pruefung-vermerken.yml@v2.0.0
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    with:
+      ergebnis: ${{ needs.pruefung.result }}
