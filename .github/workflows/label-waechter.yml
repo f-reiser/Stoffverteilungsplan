@@ -25,7 +25,7 @@ on:
 
 jobs:
   label-waechter:
-    uses: f-reiser/reiser-flow/.github/workflows/label-waechter.yml@v2.0.0
+    uses: f-reiser/reiser-flow/.github/workflows/label-waechter.yml@reiser-flow--v2.0.0
 
     #  Ein aufgerufener Workflow kann Berechtigungen nur senken, nie erhoehen.
     #  Fehlen sie hier, kann er den Verstoss nur noch melden, nicht beheben.
