@@ -773,7 +773,10 @@ Private Function GemerkterOrdner() As String
 End Function
 
 
-Private Sub AndereBlaetterVerbergen(ByRef merker As Collection)
+'  Public wie SeiteFuerPdfEinrichten oben - damit der Selbsttest den
+'  Rundlauf pruefen kann, ohne PDF_Export samt Datei-Dialog aufzurufen
+'  (Issue #6).
+Public Sub AndereBlaetterVerbergen(ByRef merker As Collection)
     Dim ws As Worksheet
 
     Set merker = New Collection
@@ -790,7 +793,7 @@ Private Sub AndereBlaetterVerbergen(ByRef merker As Collection)
 End Sub
 
 
-Private Sub BlaetterWiederZeigen(ByRef merker As Collection)
+Public Sub BlaetterWiederZeigen(ByRef merker As Collection)
     Dim i As Long
 
     If merker Is Nothing Then Exit Sub

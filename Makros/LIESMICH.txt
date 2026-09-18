@@ -418,17 +418,16 @@ Diese Anleitung steht nach dem Setup auch als Tabellenblatt
     staerkere Nachweis ist.
 
  3. Selbsttest in Excel - Alt+F8, "Selbsttest".
-    Dazu NEU: "Selbsttest_pruefen". Der baut neun definierte Fehler in
+    Dazu NEU: "Selbsttest_pruefen". Der baut definierte Fehler in
     die Mappe ein und verlangt, dass GENAU der dafuer zustaendige Check
     rot wird - und dass er nach dem Zuruecknehmen wieder gruen ist.
     Angesetzt wird nur an den Abschnitten 0 und 1b, weil die nichts
     anfassen und nichts reparieren; in einem Abschnitt, der selbst
     aufraeumt, waere das Ergebnis wertlos.
-    Die zehn Mutationen: Leerzeile unter der Tabelle, Rechenspalte F
-    geleert, Summenformel verbogen, Ferien-Kennzeichen entfernt, Blatt
-    "Update" angelegt, Stand der Anleitung verstellt, Blattschutz
-    aufgehoben, Unterrichtswochen verdreht, Makro von einer
-    Schaltflaeche genommen, zwei Schaltflaechen auf dasselbe Makro.
+    Die Namen und die erwartete Fehlermeldung aller inzwischen 16
+    Mutationen stehen in MutName()/MutErwartet() in modSelbsttest.bas,
+    nicht hier - eine Liste an zwei Stellen veraltet an der zweiten
+    (Issue #8 war genau dieser Fehler, mit vier Zahlen anderswo).
 
     ERSTER ECHTER LAUF (05.09.2026): 9 von 9 Mutationen erkannt - und
     die Ruecknahme von Mutation 9 schlug fehl. Ursache: Sabotage und
