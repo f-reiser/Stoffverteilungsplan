@@ -1,0 +1,25 @@
+name: Label-Abgleich
+
+# Bindet den wiederverwendbaren Workflow aus reiser-flow ein: bringt den
+# Label-Katalog aus reiser-flow (.github/labels.json dort) in dieses
+# Repository - Farbe, Beschreibung, Umbenennung und Loeschung nicht mehr
+# gefuehrter Label inklusive. Siehe f-reiser/reiser-flow#54.
+#
+# "schedule:" holt Aenderungen von selbst, sobald der @-Tag unten auf eine
+# neuere Fassung von reiser-flow zeigt - ohne dass deshalb foerdernd etwas in
+# diesem Repository passieren muesste.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/label-abgleich.yml
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+
+jobs:
+  label-abgleich:
+    uses: f-reiser/reiser-flow/.github/workflows/label-abgleich.yml@reiser-flow--v2.0.0
+    permissions:
+      issues: write
