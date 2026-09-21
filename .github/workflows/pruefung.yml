@@ -29,7 +29,12 @@ jobs:
       # jedem gruenen Lauf eine Deprecation-Warnung an - und eine Warnung,
       # die immer da steht, liest nach kurzer Zeit niemand mehr. Dann faellt
       # auch die echte nicht mehr auf.
+      #  lfs: true - Vorlage/*.xlsm liegen seit dem LFS-Umbau nur als Zeiger im
+      #  Commit. Ohne das hier laesen die Pruefebenen 2/3/6/8 den Zeigertext
+      #  statt der echten Mappe und schlagen an der Zip-Struktur fehl.
       - uses: actions/checkout@v7
+        with:
+          lfs: true
 
       - uses: actions/setup-python@v7
         with:

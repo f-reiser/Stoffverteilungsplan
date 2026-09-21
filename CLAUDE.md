@@ -140,6 +140,19 @@ eine byteweise Kopie des echten Mathe-Gym-10-Plans — samt Klarname, Schulname 
 vollständigen OneDrive-Pfad im versteckten Namen `wpPdfOrdner`. `pruefe_anonym.py`
 (Ebene A) prüft das bei jedem Push. Von Hand dort hineinschreiben ist ein Fehler.
 
+**`Vorlage/*.xlsm` liegen per Git LFS mit Sperre (`lockable`).** Zwei Fassungen einer
+`.xlsm` lassen sich nicht zusammenführen — kein Diff, kein Merge. Deshalb vor jeder
+Änderung sperren, danach wieder freigeben:
+
+```
+git lfs lock Vorlage/<Datei>.xlsm
+# ... ändern, committen, pushen ...
+git lfs unlock Vorlage/<Datei>.xlsm
+```
+
+Ein Push, der eine fremd gesperrte Datei ändert, wird von GitHub abgelehnt — das ist
+Absicht, nicht ein Fehler, der zu umgehen wäre.
+
 ## Die Module
 
 `modKonfig` (nur `SCHUTZ_PW`, nie anfassen) · `modWochenplan` (Kern: Layout-Erkennung,
