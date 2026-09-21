@@ -140,20 +140,10 @@ eine byteweise Kopie des echten Mathe-Gym-10-Plans — samt Klarname, Schulname 
 vollständigen OneDrive-Pfad im versteckten Namen `wpPdfOrdner`. `pruefe_anonym.py`
 (Ebene A) prüft das bei jedem Push. Von Hand dort hineinschreiben ist ein Fehler.
 
-**Binärdateien liegen per Git LFS mit Sperre (`lockable`)** — `.gitattributes` gilt für
-`*.xlsm`, `*.xlsx`, `*.docx`, `*.pdf`, `*.png` im ganzen Repository, praktisch betrifft es
-heute `Vorlage/*.xlsm` und die beiden Logo-Platzhalter dort. Keiner dieser Dateitypen lässt
-sich zusammenführen — kein Diff, kein Merge. Deshalb vor jeder Änderung sperren, danach
-wieder freigeben:
-
-```
-git lfs lock Vorlage/<Datei>.xlsm
-# ... ändern, committen, pushen ...
-git lfs unlock Vorlage/<Datei>.xlsm
-```
-
-Ein Push, der eine fremd gesperrte Datei ändert, wird von GitHub abgelehnt — das ist
-Absicht, nicht ein Fehler, der zu umgehen wäre.
+**Binärdateien liegen per Git LFS mit Sperre (`lockable`)** — Mechanik und Pflicht dazu
+stehen jetzt in `repo-hygiene` (reiser-flow ab v2.3.0), hier nur, WELCHE Dateien es
+betrifft: `.gitattributes` gilt für `*.xlsm`, `*.xlsx`, `*.docx`, `*.pdf`, `*.png` im
+ganzen Repository, praktisch heute `Vorlage/*.xlsm` und die beiden Logo-Platzhalter dort.
 
 ## Die Module
 
