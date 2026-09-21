@@ -267,6 +267,10 @@ den es nicht gibt.
 Der Bericht landet in Mappenordner / `%TEMP%` / Dokumente / `C:\Temp` (erste schreibbare
 Stelle); durchgefallene Prüfungen stehen zusätzlich in der Schlussmeldung.
 
+Seit `makros_einsetzen.py` (Issue #77) lässt sich Ebene 4/5 auch aus einer lokalen
+Claude-Sitzung heraus per Excel-COM anstoßen und der Bericht direkt lesen — Ablauf und
+was danach in `Vorlage/` nachzuziehen ist, stehen in `CLAUDE.md`.
+
 ## Ebene 9 — warum sie nicht in die CI kann
 
 Ebene 1–8 prüfen, ob der Code zu seiner eigenen Auslegung passt. Ebene 9 prüft die

@@ -149,6 +149,31 @@ Die Makros dagegen dürfen (Issue #77) direkt über `Makros/makros_einsetzen.py`
 echten Update-Weg), nie aus einer befüllten produktiven Mappe. Vor jeder Änderung an
 diesen Dateien sperren (`git lfs lock`, siehe unten) — das Skript tut das nicht selbst.
 
+**Lokale Arbeit zu Ebene 4/5 (Bestätigung eines offenen Pull Requests in echtem Excel)
+gehört `Vorlage/` mit dazu.** Die Bestätigung selbst läuft gegen eine WEGWERF-Kopie
+außerhalb des Repos (`makros_einsetzen.py <kopie mit "Test" im Namen>`, dann
+`Application.Run("modSelbsttest.Selbsttest_Pruefen")` bzw. `"modSelbsttest.Selbsttest"`
+per COM — funktioniert trotz `Option Private Module`, siehe Mutation 15/16). Damit ist die
+Arbeit aber nicht fertig: `Vorlage/Stoffverteilungsplan_Template.xlsm` und
+`Referenzmappe.xlsm` im Repository tragen weiterhin den Stand von `main`, nicht den des
+Branches. Auf demselben Branch nachziehen — `makros_einsetzen.py` aufs Template, danach
+`--referenzmappe`, danach `pruefe_alles.py` gegenprüfen, committen, pushen (LFS-Sperre wie
+oben) —, sonst bleibt der Prüfstand des Repositorys hinter einem längst grün bestätigten
+Branch zurück.
+
+Beide Selbsttest-Makros zeigen am Ende eine `MsgBox`, NACHDEM der Bericht
+(`Selbsttest_Bericht.txt` / `Selbsttest_Mutationen.txt`, neben der Kopie oder in `%TEMP%`)
+schon geschrieben ist — das Ergebnis steht also fest, bevor irgendjemand die Meldung
+wegklickt. `Application.Run` per COM blockiert an dieser Meldung trotzdem, bis sie
+verschwindet; ohne zugesagten Computer-Use-Zugriff auf Excel bleibt der Prozess offen.
+Nicht raten, ob geschlossen werden darf — den Nutzer fragen (Issue #83 verfolgt einen
+stillen Modus dafür; solange er nicht umgesetzt ist, bleibt es bei dieser Umgehung).
+
+**Ein Befund aus so einem echten Lauf, der nicht zum bearbeiteten Issue gehört, wird ein
+neues Issue** (`github-issue-workflow`), nicht eine stille Zusatzänderung im laufenden
+Pull Request — auch dann, wenn der neue Check aus genau diesem Pull Request den Fund erst
+sichtbar gemacht hat.
+
 **Binärdateien liegen per Git LFS mit Sperre (`lockable`)** — Mechanik und Pflicht dazu
 stehen jetzt in `repo-hygiene` (reiser-flow ab v2.3.0), hier nur, WELCHE Dateien es
 betrifft: `.gitattributes` gilt für `*.xlsm`, `*.xlsx`, `*.docx`, `*.pdf`, `*.png` im
