@@ -81,13 +81,14 @@ Diese Anleitung steht nach dem Setup auch als Tabellenblatt
       daneben sitzen hat.
 
    b) Skript, das xl/vbaProject.bin in der xlsm austauscht.
-      Technisch die sauberste Loesung (siehe Makros_verteilen.ps1),
-      scheitert aber an Windows: unsignierte PowerShell-Skripte laufen
+      Scheitert an Windows: unsignierte PowerShell-Skripte laufen
       nicht ohne Aenderung der Ausfuehrungsrichtlinie. Eine .exe
       (PyInstaller) waere noch schlechter: unsigniert schlaegt
       SmartScreen an ("Unbekannter Herausgeber"), und
       PyInstaller-Dateien werden von Virenscannern reihenweise falsch
-      erkannt. In der Schule gibt das nur Aerger.
+      erkannt. In der Schule gibt das nur Aerger. Der fruehere Versuch
+      dazu (Makros_verteilen.ps1) ist deshalb entfernt (Issue #77) -
+      fuer Kolleginnen und Kollegen bleibt Weg c) der einzige.
 
    c) DER GEWAEHLTE WEG - Richtung umdrehen.
       Nicht die neuen Makros in die alte Datei, sondern die alten
@@ -171,6 +172,50 @@ Diese Anleitung steht nach dem Setup auch als Tabellenblatt
    holen, Setup laufen lassen, als Vorlage speichern - und diese
    eine Datei verteilen. Der Rest passiert bei den Kollegen ueber
    den Uebernehmen-Knopf.
+
+----------------------------------------------------------------------
+ Makros/*.bas -> Vorlage/*.xlsm HALTEN  (makros_einsetzen.py, Issue #77)
+----------------------------------------------------------------------
+ Eine ANDERE Frage als oben: nicht wie Kolleginnen und Kollegen an
+ neue Makros kommen, sondern wie die beiden .xlsm in Vorlage/ mit dem
+ aktuellen Stand von Makros/ Schritt halten - fuer Tests von PRs und
+ fuer den Mutationstest der Ebenen 3/6, der eine gefuellte Mappe
+ braucht.
+
+ Laeuft ausschliesslich lokal (Excel-COM, "Zugriff auf das
+ VBA-Projektobjektmodell vertrauen" noetig), nie in der CI - wie der
+ Excel-Selbsttest (Ebene 4/5).
+
+   python3 makros_einsetzen.py Vorlage/Stoffverteilungsplan_Template.xlsm
+      Tauscht alle Standardmodule aus (entfernen + neu importieren),
+      ersetzt die beiden Dokumentmodule, haengt modKonfig.bas.vorlage
+      statt des echten Moduls ein (Projektregel 4), entschuetzt vorher
+      mit dem ALTEN Kennwort und schuetzt danach mit dem NEUEN wieder
+      (sonst laufen VBA-Konstante und Blattschutz-Hash auseinander -
+      genau das hat den ersten Versuch scheitern lassen). Am Ende
+      saeubere_metadaten(): Excel schreibt bei JEDEM Speichern den
+      aktuellen Windows-Benutzer neu hinein (lastModifiedBy, absPath),
+      unabhaengig vom Zellinhalt - das entfernt dieselben zwei Spuren,
+      die anonymisiere.py fuer eine produktive Quelle entfernt.
+
+   python3 makros_einsetzen.py --pruefen <mappe.xlsm>
+      Nur lesen: vergleicht die Module IN der Mappe mit Makros/.
+      Case-insensitiv und ohne Zeilenendenvergleich - VBA vereinheit-
+      licht die Gross-/Kleinschreibung eines Bezeichners projektweit
+      auf die erste gefundene Schreibweise (auch bei manuellem
+      Alt+F11-Import), und CodeModule.Lines() liefert immer CRLF ohne
+      abschliessenden Zeilenumbruch. Beides ist Form, keine Abweichung.
+
+   python3 makros_einsetzen.py --referenzmappe <template.xlsm> \n                                <alte_referenzmappe.xlsm> <ziel.xlsm>
+      Baut Referenzmappe.xlsm NICHT aus einer befuellten produktiven
+      Mappe (die muesste hinterher wieder anonymisiert werden - ein
+      unnoetiger Umweg, der den echten Uebernahmeweg nicht mittestet).
+      Stattdessen genau der Weg oben: Template kopieren,
+      modUebernahme.UebernahmeAusfuehren gegen eine entschuetzte Kopie
+      der ALTEN Referenzmappe fahren (deren Blattschutz-Hash passt
+      nicht zum neuen Platzhalter-Kennwort - deshalb XML-Chirurgie
+      statt Kennwort), Setup_Stoffverteilungsplan und
+      UW_Und_Ferien_Generieren hinterher.
 
 
 ----------------------------------------------------------------------
