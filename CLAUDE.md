@@ -169,6 +169,15 @@ verschwindet; ohne zugesagten Computer-Use-Zugriff auf Excel bleibt der Prozess 
 Nicht raten, ob geschlossen werden darf — den Nutzer fragen (Issue #83 verfolgt einen
 stillen Modus dafür; solange er nicht umgesetzt ist, bleibt es bei dieser Umgehung).
 
+**Die beiden Berichte (`Selbsttest_Bericht.txt`, `Selbsttest_Mutationen.txt`) gehören in
+den Pull-Request-Kommentar, nicht nur ihre Zusammenfassung.** An echte Excel-Diagnosedaten
+kommt sonst niemand ohne denselben lokalen Lauf — für Nachvollziehbarkeit und weil eine
+spätere Sitzung Details herauslesen kann, die die Zusammenfassung nicht trägt. Eingebettet
+als `<details>`-Block mit Code-Fence, nicht als Anhang (dafür fehlt einer lokalen Sitzung
+der Weg, den nur die Browser-Oberfläche kann). Wichtig beim Einbetten: Die Dateien sind
+cp1252 wie die `.bas`-Module — erst `decode("cp1252")`, dann einfügen, sonst stehen
+Umlaute als `�` im Kommentar.
+
 **Ein Befund aus so einem echten Lauf, der nicht zum bearbeiteten Issue gehört, wird ein
 neues Issue** (`github-issue-workflow`), nicht eine stille Zusatzänderung im laufenden
 Pull Request — auch dann, wenn der neue Check aus genau diesem Pull Request den Fund erst
