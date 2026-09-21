@@ -1,11 +1,16 @@
 name: Label-Abgleich
 
-# Bringt den Label-Katalog aus reiser-flow (.github/labels.json dort) auf den
-# aktuellen Stand - Farbe, Beschreibung, Umbenennung und Loeschung nicht mehr
-# gefuehrter Label inklusive. Kein "schedule:": ob und wann dieses Projekt
-# seinen "@<tag>" auf eine neuere Fassung von reiser-flow nachzieht, ist ein
-# manueller Schritt (siehe die uebrigen Workflow-Dateien hier), und erst dann
-# ist ein neuer Abgleich noetig - siehe f-reiser/reiser-flow#54.
+# NUR UEBERGANGSWEISE HIER. Bringt den Label-Katalog aus reiser-flow
+# (.github/labels.json dort) auf den aktuellen Stand - Farbe, Beschreibung,
+# Umbenennung und Loeschung nicht mehr gefuehrter Label inklusive. Kein
+# "schedule:": ob und wann dieses Projekt seinen "@<tag>" auf eine neuere
+# Fassung von reiser-flow nachzieht, ist noch ein manueller Schritt (siehe die
+# uebrigen Workflow-Dateien hier), und erst dann ist ein neuer Abgleich noetig.
+#
+# Sobald f-reiser/reiser-flow#54 einen automatisierten Upgrade-Mechanismus
+# liefert, der diesen Abgleich selbst anstoesst: diese Datei ersatzlos
+# entfernen, nicht migrieren - der Nutzer will sie nur bis dahin, nicht als
+# Dauereinrichtung neben dem neuen Mechanismus.
 
 on:
   push:
