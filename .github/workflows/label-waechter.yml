@@ -19,16 +19,21 @@ name: Label-Waechter
 
 on:
   issues:
-    types: [labeled]
+    types: [labeled, edited]
+  issue_comment:
+    types: [created, edited, deleted]
   pull_request_target:
-    types: [labeled]
+    types: [labeled, edited]
 
 jobs:
   label-waechter:
-    uses: f-reiser/reiser-flow/.github/workflows/label-waechter.yml@reiser-flow--v2.0.0
+    uses: f-reiser/reiser-flow/.github/workflows/label-waechter.yml@20f802ad52419629091c043170c615b3e5f4e9b1  # reiser-flow--v2.2.0
 
     #  Ein aufgerufener Workflow kann Berechtigungen nur senken, nie erhoehen.
     #  Fehlen sie hier, kann er den Verstoss nur noch melden, nicht beheben.
+    #  "actions: read" fuer den Pruefsummen-Cache (Schutz gegen nachtraeglich
+    #  geaenderte Issues/Kommentare, reiser-flow#23).
     permissions:
       issues: write
       pull-requests: write
+      actions: read

@@ -14,12 +14,12 @@ name: Claude-Aufgaben
 
 on:
   schedule:
-    - cron: "0 */4 * * *"
+    - cron: "7 */4 * * *"
   workflow_dispatch:
 
 jobs:
   claude-aufgaben:
-    uses: f-reiser/reiser-flow/.github/workflows/claude-aufgaben.yml@reiser-flow--v2.0.0
+    uses: f-reiser/reiser-flow/.github/workflows/claude-aufgaben.yml@20f802ad52419629091c043170c615b3e5f4e9b1  # reiser-flow--v2.2.0
 
     #  Ein aufgerufener Workflow kann Berechtigungen nur senken, nie erhoehen -
     #  was hier fehlt, bekommt er auch dann nicht, wenn er es selbst anfordert.

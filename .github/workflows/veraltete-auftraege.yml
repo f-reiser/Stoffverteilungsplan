@@ -1,0 +1,16 @@
+name: Veraltete Auftraege zuruecknehmen
+
+# Nimmt ein geschuetztes Label (Einarbeiten, Untersuche, Gegenlese) zurueck,
+# wenn es laenger als fuenf Tage ununterbrochen an einem Vorgang haengt, ohne
+# dass sich sichtbar etwas getan hat (f-reiser/reiser-flow#23).
+
+on:
+  schedule:
+    - cron: "38 5 * * *"
+  workflow_dispatch:
+
+jobs:
+  veraltete-auftraege:
+    uses: f-reiser/reiser-flow/.github/workflows/veraltete-auftraege.yml@20f802ad52419629091c043170c615b3e5f4e9b1  # reiser-flow--v2.2.0
+    permissions:
+      issues: write
