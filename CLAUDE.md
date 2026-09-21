@@ -140,9 +140,11 @@ eine byteweise Kopie des echten Mathe-Gym-10-Plans — samt Klarname, Schulname 
 vollständigen OneDrive-Pfad im versteckten Namen `wpPdfOrdner`. `pruefe_anonym.py`
 (Ebene A) prüft das bei jedem Push. Von Hand dort hineinschreiben ist ein Fehler.
 
-**`Vorlage/*.xlsm` liegen per Git LFS mit Sperre (`lockable`).** Zwei Fassungen einer
-`.xlsm` lassen sich nicht zusammenführen — kein Diff, kein Merge. Deshalb vor jeder
-Änderung sperren, danach wieder freigeben:
+**Binärdateien liegen per Git LFS mit Sperre (`lockable`)** — `.gitattributes` gilt für
+`*.xlsm`, `*.xlsx`, `*.docx`, `*.pdf`, `*.png` im ganzen Repository, praktisch betrifft es
+heute `Vorlage/*.xlsm` und die beiden Logo-Platzhalter dort. Keiner dieser Dateitypen lässt
+sich zusammenführen — kein Diff, kein Merge. Deshalb vor jeder Änderung sperren, danach
+wieder freigeben:
 
 ```
 git lfs lock Vorlage/<Datei>.xlsm

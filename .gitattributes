@@ -30,10 +30,13 @@
 #      git config filter.signatur.clean "python Makros/signatur_entfernen.py"
 #  Ohne diese Einstellung reicht Git den Inhalt unveraendert durch.
 *.ps1 filter=signatur
-#  Ausdruecklich binaer: nie als Text behandeln, nie zu mergen versuchen.
-*.xlsm binary
-*.xlsx binary
-*.docx binary
-*.pdf  binary
-*.png  binary
-Vorlage/*.xlsm filter=lfs diff=lfs merge=lfs -text lockable
+#  Ausdruecklich binaer: nie als Text behandeln, nie zu mergen versuchen. Und
+#  per Sperre vor lautlos ueberschriebenen Aenderungen geschuetzt (siehe
+#  CLAUDE.md) - nicht nur die zwei .xlsm, die es heute in Vorlage/ gibt: Kein
+#  Dateityp hier ist git-mergefaehig, das Risiko ist also nicht auf ein
+#  Verzeichnis oder eine Endung beschraenkt (PR #79, Review-Kommentare).
+*.xlsm filter=lfs diff=lfs merge=lfs -text lockable
+*.xlsx filter=lfs diff=lfs merge=lfs -text lockable
+*.docx filter=lfs diff=lfs merge=lfs -text lockable
+*.pdf  filter=lfs diff=lfs merge=lfs -text lockable
+*.png  filter=lfs diff=lfs merge=lfs -text lockable
