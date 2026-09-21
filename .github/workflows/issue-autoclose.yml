@@ -1,0 +1,16 @@
+name: Issue automatisch schliessen
+
+# Schliesst ein offenes Issue, sobald ein Pull Request auf dessen
+# issue-<nr>-*-Branch vom Maintainer-Konto gemergt wurde. Ein geschlossener,
+# nicht gemergter Pull Request schliesst nie automatisch ein Issue.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  issue-autoclose:
+    uses: f-reiser/reiser-flow/.github/workflows/issue-autoclose.yml@20f802ad52419629091c043170c615b3e5f4e9b1  # reiser-flow--v2.2.0
+    with:
+      maintainer-login: ${{ vars.MAINTAINER_LOGIN }}

@@ -101,8 +101,8 @@ Stoffverteilungsplan/
 
 **Die Automatik gehört nicht mehr diesem Projekt.** `claude-aufgaben.yml` (der
 Vier-Stunden-Lauf), `label-waechter.yml` und die acht Python-Skripte, an denen sie hingen,
-liegen seit dem 18.09.2026 in `f-reiser/reiser-flow` und werden von dort über einen Tag
-geholt. Hier stehen nur noch drei kurze Aufrufe. Wer an der Automatik etwas ändern will,
+liegen seit dem 18.09.2026 in `f-reiser/reiser-flow` und werden von dort per Commit-SHA
+geholt. Hier stehen nur noch kurze Aufrufe. Wer an der Automatik etwas ändern will,
 ändert sie **dort** — eine Änderung hier hätte nur in diesem Projekt Wirkung, und genau das
 war der Grund für den Umzug. Was bleibt: `pruefung.yml` ruft weiterhin
 `Makros/pruefe_alles.py`, denn *was* geprüft wird, ist Sache dieses Projekts.
