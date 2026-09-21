@@ -87,10 +87,11 @@ Stoffverteilungsplan/
 │  ├─ pruefe_formeln.py       Ebene 6: Formelkonsistenz, mit --selbsttest
 │  ├─ pruefe_anonym.py        Ebene A: keine Produktivdaten in Vorlage/, mit --selbsttest
 │  ├─ anonym_muster.local.json  eigene Namen als Suchmuster — in .gitignore
-│  ├─ anonymisiere.py         erzeugt Vorlage/ aus einer produktiven Mappe
+│  ├─ anonymisiere.py         erzeugt Vorlage/-Zellinhalte aus einer produktiven Mappe
+│  ├─ makros_einsetzen.py     bringt Makros/*.bas per Excel-COM in Vorlage/*.xlsm (lokal, Issue #77)
 │  ├─ logos_einsetzen.py      tauscht die eingebetteten Logos einer Mappe
 │  └─ ci_ausgabe.py           Ausgabeschicht für GitHub Actions, mit --selbsttest
-├─ Vorlage/                   die einzigen .xlsm im Repo — ERZEUGT, nicht gepflegt
+├─ Vorlage/                   die einzigen .xlsm im Repo — Inhalte ERZEUGT, Makros GEPFLEGT
 ├─ Bilder/                    Schullogos
 ├─ Diagnose/                  hier legt der Nutzer Testberichte ab (nicht im Repo)
 ├─ *.xlsm                     Ergebnis, nicht Quelle (nicht im Repo)
@@ -134,11 +135,19 @@ Blacklist müsste jedes neue Verzeichnis daran denken, sich auszuschließen.
 vor dem Commit **nachgefragt** werden, ob sie ins Repository sollen. Sonst fehlt still
 etwas Wichtiges.
 
-**`Vorlage/` wird erzeugt, nicht gepflegt.** Beide Mappen dort entstehen aus einer
-produktiven Datei über `Makros/anonymisiere.py`. Bis 06.09.2026 war `Referenzmappe.xlsm`
+**`Vorlage/` — Zellinhalte werden erzeugt, Makros werden gepflegt.** Format, Formeln und
+Zellinhalte entstehen weiterhin aus einer produktiven Datei über `Makros/anonymisiere.py`;
+von Hand dort hineinschreiben bleibt ein Fehler. Bis 06.09.2026 war `Referenzmappe.xlsm`
 eine byteweise Kopie des echten Mathe-Gym-10-Plans — samt Klarname, Schulname und dem
 vollständigen OneDrive-Pfad im versteckten Namen `wpPdfOrdner`. `pruefe_anonym.py`
-(Ebene A) prüft das bei jedem Push. Von Hand dort hineinschreiben ist ein Fehler.
+(Ebene A) prüft das bei jedem Push.
+
+Die Makros dagegen dürfen (Issue #77) direkt über `Makros/makros_einsetzen.py` in
+`Stoffverteilungsplan_Template.xlsm` eingesetzt werden — Excel-COM, kein XML-Zugriff auf
+`xl/vbaProject.bin`, läuft nur lokal. `Referenzmappe.xlsm` wird danach mit
+`--referenzmappe` aus dem aktualisierten Template neu gebaut (über `modUebernahme`, dem
+echten Update-Weg), nie aus einer befüllten produktiven Mappe. Vor jeder Änderung an
+diesen Dateien sperren (`git lfs lock`, siehe unten) — das Skript tut das nicht selbst.
 
 **Binärdateien liegen per Git LFS mit Sperre (`lockable`)** — Mechanik und Pflicht dazu
 stehen jetzt in `repo-hygiene` (reiser-flow ab v2.3.0), hier nur, WELCHE Dateien es
