@@ -215,9 +215,30 @@ def check(path):
         problems.append(f"Am Dateiende noch offen: {stack}")
 
     # --- 3. FormatConditions ---------------------------------------
+    # Lesen der ANZAHL ist seit 13.09.2026 erlaubt (Issue #31): die
+    # Warnung vor einem zerlegten Farbbereich braucht sie.
+    #
+    # Seit PR #59 ("Weg 2", zweiter Anlauf) zusaetzlich erlaubt:
+    # .AppliesTo einer EINZELNEN Regel ueber einen festen, literalen
+    # Index - liefert eine ganz normale Range, auf der Areas/Row/
+    # Rows.Count & Co. unproblematisch sind (das crasht nicht mehr,
+    # bestaetigt 13.09.2026 - die alte Sorge galt dem Zugriff auf die
+    # Regel selbst, nicht auf die Range, die sie zurueckgibt). Der
+    # Index muss eine Zahl sein, keine Variable: eine Schleife ueber
+    # die Regeln bleibt verboten.
+    #
+    # Alles andere bleibt verboten - Add, Delete, ModifyAppliesToRange,
+    # Formula1 und jeder Zugriff mit einem nicht-literalen Index.
+    nur_count = re.compile(r"formatconditions\s*\.\s*count")
+    appliesto_fest = re.compile(
+        r"formatconditions\s*\(\s*\d+\s*\)\s*\.\s*appliesto\b")
     for n, l in lines:
-        if "formatcondition" in l.lower():
-            problems.append(f"Zeile {n}: Zugriff auf FormatConditions - verboten")
+        low = l.lower()
+        erlaubt = len(nur_count.findall(low)) + len(appliesto_fest.findall(low))
+        if low.count("formatcondition") > erlaubt:
+            problems.append(
+                f"Zeile {n}: Zugriff auf FormatConditions ausser .Count oder "
+                f".AppliesTo (fester Index) - verboten")
 
 
     # --- 5. Verbundene Zellen: Vollbereich quer durch B..M ----------
@@ -282,7 +303,7 @@ def check(path):
 
 MODULES = {"modwochenplan", "modkalender", "modsteuerung", "modanleitung",
            "modschutz", "modkopf", "modkonfig", "modselbsttest", "moduebernahme",
-           "modstart"}
+           "modstart", "modpruefung"}
 
 PROC_START = re.compile(
     r"^\s*(?:(public|private|friend)\s+)?(?:static\s+)?"
@@ -517,6 +538,32 @@ End Sub
 Public Sub Mut_CF()
     Dim ws As Worksheet
     ws.Cells.FormatConditions.Delete
+End Sub
+""")),
+
+    # Die Ausnahme fuer .Count darf nicht die ganze Regel aushebeln:
+    # eine einzelne Regel auszulesen bleibt verboten.
+    ("einzelne Regel der bedingten Formatierung gelesen", "FormatConditions",
+     lambda t: _anhaengen(t, """
+Public Sub Mut_CF_Lesen()
+    Dim ws As Worksheet
+    Dim s As String
+    s = ws.Cells.FormatConditions(1).Formula1
+End Sub
+""")),
+
+    # Die Ausnahme fuer .AppliesTo (PR #59, "Weg 2") gilt nur fuer
+    # einen festen Index - eine Schleife ueber die Regeln waere die
+    # Iteration, die weiterhin verboten bleibt.
+    ("Regelzugriff ueber einen Schleifenindex statt eines festen Index",
+     "FormatConditions",
+     lambda t: _anhaengen(t, """
+Public Sub Mut_CF_Schleife()
+    Dim ws As Worksheet
+    Dim i As Long, r As Range
+    For i = 1 To 3
+        Set r = ws.Cells.FormatConditions(i).AppliesTo
+    Next i
 End Sub
 """)),
 

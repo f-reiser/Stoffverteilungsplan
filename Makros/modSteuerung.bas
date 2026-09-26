@@ -35,9 +35,10 @@ Option Private Module
 
 Public Const CTRL_SHEET As String = "Steuerung"
 
-' Zellen mit den beiden Statuszeilen
+' Zellen mit den Statuszeilen
 Public Const CTRL_STATUS_CODE   As String = "B4"
 Public Const CTRL_STATUS_SCHUTZ As String = "B5"
+Public Const CTRL_STATUS_WARNUNG As String = "B6"
 
 '  Beschriftungen der beiden Fixier-Schaltflaechen. Sie dienen
 '  gleichzeitig als Wiedererkennung (AlternativeText der Form), wenn
@@ -105,6 +106,10 @@ Public Sub Setup_Stoffverteilungsplan()
 
     modKopf.Kopf_Aktualisieren True
     modSchutz.Blattschutz_Einrichten
+
+    '  Zum Schluss und nicht am Anfang: nach dem Neuaufbau steht in der
+    '  Warnzeile, was der Neuaufbau NICHT heilen konnte.
+    modPruefung.WarnungAnzeigen
 
     modWochenplan.GotoSheet CTRL_SHEET, "B2"
 
@@ -179,6 +184,21 @@ Private Sub EnsureSteuerung()
         .Font.Bold = True
         .Font.Color = modWochenplan.FARBE_LEISE
     End With
+
+    '  Kurzhinweis auf eine Auffaelligkeit, ohne die Details: die
+    '  stehen schon in der Warnzeile bei "Einrichtung / Reparatur",
+    '  die man leicht uebersieht. modPruefung.WarnungAnzeigen fuellt
+    '  und leert diese Zeile - hier nur anlegen und benennen, damit sie
+    '  ohne Zeilennummer wiederzufinden ist.
+    With ws.Range(CTRL_STATUS_WARNUNG)
+        .Value = ""
+        .Font.Bold = True
+        .Font.Color = RGB(186, 74, 74)
+    End With
+    On Error Resume Next
+    ThisWorkbook.Names.Add Name:=modPruefung.PRF_ZELLE_KURZ_NAME, _
+                           RefersTo:="=" & ws.Name & "!" & ws.Range(CTRL_STATUS_WARNUNG).Address(True, True)
+    On Error GoTo 0
 
     ' ---------------- Alltag -----------------------------------------
     r = 7
@@ -265,6 +285,9 @@ Private Sub EnsureSteuerung()
               "die Summenzeile in """ & LB_SHEET & """ neu auf und setzt den " & _
               "Blattschutz frisch. Für den Spezialfall, dass etwas verrutscht ist oder " & _
               "eine Fehlermeldung darum bittet."
+    r = r + 1
+
+    PruefHinweisZelle ws, r
     r = r + 2
 
     '  Bewusst rot und mit Warnzeichen: das ist die einzige
@@ -391,6 +414,41 @@ Private Sub PdfFormatZelle(ByVal ws As Worksheet, ByVal r As Long)
         .IndentLevel = 1
         .VerticalAlignment = xlCenter
     End With
+End Sub
+
+
+'---------------------------------------------------------------------
+'  Die Zeile, in der modPruefung seine Warnung ablegt - direkt unter
+'  "Einrichtung / Reparatur", weil genau dieser Knopf die Antwort auf
+'  eine Warnung ist.
+'
+'  Sie bekommt den Namen wpPruefHinweis: so findet modPruefung sie
+'  wieder, ohne dass irgendwo eine Zeilennummer steht. Feste Hoehe,
+'  keine Anpassung an den Text - verbundene Zellen koennen kein
+'  AutoFit, und die Hoehe liesse sich bei geschuetztem Blatt ohnehin
+'  nicht nachziehen.
+'---------------------------------------------------------------------
+Private Sub PruefHinweisZelle(ByVal ws As Worksheet, ByVal r As Long)
+    Dim c As Range
+
+    ws.Rows(r).RowHeight = 30
+    ws.Rows(r + 1).RowHeight = 10
+
+    Set c = ws.Cells(r, BTN_COL)
+    With ws.Range(c, ws.Cells(r, TXT_COL))
+        .Merge
+        .WrapText = True
+        .VerticalAlignment = xlTop
+        .IndentLevel = 1
+        .Font.Size = 9
+    End With
+    c.Value = modPruefung.PRF_SAUBER
+    c.Font.Color = modWochenplan.FARBE_LEISE
+
+    On Error Resume Next
+    ThisWorkbook.Names.Add Name:=modPruefung.PRF_ZELLE_NAME, _
+                           RefersTo:="=" & ws.Name & "!" & c.Address(True, True)
+    On Error GoTo 0
 End Sub
 
 

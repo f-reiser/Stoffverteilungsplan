@@ -555,7 +555,10 @@ Private Function StdLastRow() As Long
     StdLastRow = mStdLast
 End Function
 
-Private Function StdListAddress() As String
+'  Public, seit modPruefung und der Selbsttest die Adresse der
+'  Stundenliste brauchen: an ihr haengen die Gueltigkeitsliste der
+'  Spalte K und die Farbregeln der bedingten Formatierung.
+Public Function StdListAddress() As String
     Dim st As Worksheet
     NeedLayout
     Set st = SetSheet()
@@ -2047,6 +2050,7 @@ End Sub
 Public Sub Diag_Wochenplan()
     Dim ws As Worksheet, rep As String, lastRow As Long, outPath As String
     Dim cr() As Long, nRows As Long, r As Long, nFer As Long
+    Dim befund As String
 
     Set ws = WpSheet()
     If ws Is Nothing Then
@@ -2085,6 +2089,14 @@ Public Sub Diag_Wochenplan()
         rep = rep & LayoutInfo() & vbCrLf
     Else
         rep = rep & "Kalendertabelle NICHT gefunden!" & vbCrLf
+    End If
+
+    befund = modPruefung.MappePruefen()
+    rep = rep & vbCrLf & "--- Analyse der Mappe ---" & vbCrLf
+    If Len(befund) = 0 Then
+        rep = rep & "keine Auffaelligkeiten" & vbCrLf
+    Else
+        rep = rep & befund
     End If
 
     rep = rep & vbCrLf & "--- Formen ---" & vbCrLf

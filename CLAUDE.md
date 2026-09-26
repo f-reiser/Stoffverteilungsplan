@@ -16,9 +16,21 @@ Der VBA-Editor liest beim Import ANSI. Das Edit-Werkzeug schreibt UTF-8 zurück 
 ersetzt dabei jeden Umlaut durch U+FFFD — der Inhalt ist danach weg. Jede Änderung über
 ein Python-Skript mit `io.open(p, encoding='cp1252', newline='')`.
 
-**2. Die bedingte Formatierung wird per VBA GAR NICHT angefasst.**
-Sieben der acht Regeln sind x14-Erweiterungsregeln. Der Zugriff auf die klassische
-`FormatConditions`-Auflistung hat Excel hart abstürzen lassen.
+**2. An der bedingten Formatierung wird per VBA nur `FormatConditions.Count` gelesen,
+plus ein einziger Sonderfall.** Sieben der acht Regeln sind x14-Erweiterungsregeln; der
+Zugriff auf eine einzelne Regel hat Excel hart abstürzen lassen. Das reine Zählen hat der
+Nutzer am 13.09.2026 freigegeben, weil die Warnung aus Issue #31 es braucht.
+
+Ein erster Anlauf in PR #59 ("Weg 2") hat zusätzlich `AppliesTo.Areas.Count` gelesen und
+jeden Flächen-Zerfall gemeldet — das crasht nicht, war aber als Fehlersignal falsch: der
+Zerfall selbst ist normal (siehe `Doku/Fallstricke.md`) und tritt auf jeder echten Mappe
+mit Ferienzeilen auf. Im zweiten Anlauf deshalb verfeinert und seitdem erlaubt: `.AppliesTo`
+einer EINZELNEN Regel über einen festen, literalen Index, danach nur noch gewöhnliche
+Range-Eigenschaften darauf (`Areas`, `Row`, `Rows.Count`) — genug, um zu prüfen, ob jede
+Zerfallsgrenze an einer Ferienzeile liegt (`modPruefung.UnerklaerterZerfall`). Liegt sie
+das nicht, ist es kein normaler Zerfall mehr. Alles andere — Schreiben, Enumerieren über
+eine Variable, `Formula1` lesen — bleibt verboten; `vbacheck.py` lässt nichts außer diesen
+zwei Mustern durch.
 
 **3. openpyxl darf diese Mappen NIEMALS speichern.**
 Es wirft die x14-Erweiterungen weg und beschädigt `xl/vbaProject.bin`. Lesen ist
