@@ -94,6 +94,20 @@ Public Sub UW_Und_Ferien_Generieren()
         End If
     Next r
 
+    ' --- 1b. Fehlende Planzeilen ergaenzen ------------------------------
+    '  Ohne das blieb eine fast leere Mappe bei einer einzigen Planzeile
+    '  haengen: Schritt 2b unten entfernt jede Zeile ohne Unterrichtswoche
+    '  wieder, und ohne genug Zeilen bekamen die meisten Wochen gar keine.
+    '  Betroffen ist genau der Fall, in dem der Anwender erst die grobe
+    '  Planung in "Lernbereiche" gemacht hat und zum ersten Mal auf diesen
+    '  Knopf drueckt, bevor der Wochenplan ueberhaupt Zeilen hat (#64).
+    modWochenplan.SetStep "Planzeilen ergänzen"
+    lastRow = modWochenplan.PlanLastRow(ws)
+    nPlan = lastRow - WP_FIRST_ROW + 1
+    If nPlan < nWeek Then
+        modWochenplan.EnsureMinPlanRows ws, nWeek
+    End If
+
     ' --- 2. Unterrichtswochen als Werte schreiben ---------------------
     modWochenplan.SetStep "Unterrichtswochen schreiben"
     lastRow = modWochenplan.PlanLastRow(ws)
@@ -252,6 +266,17 @@ End Sub
 '=====================================================================
 '  Einstellungen lesen
 '=====================================================================
+Public Function VerfuegbareWochenAnzahl() As Long
+    Dim st As Worksheet, startYear As Long
+    Dim wkNr() As Long, wkVon() As Date, wkBis() As Date
+
+    Set st = modWochenplan.SetSheet()
+    If st Is Nothing Then Exit Function
+    startYear = SchoolStartYear(st)
+    VerfuegbareWochenAnzahl = ReadWeeks(st, startYear, wkNr, wkVon, wkBis)
+End Function
+
+
 Public Function SchoolStartYear(ByVal st As Worksheet) As Long
     Dim v As Variant
     On Error Resume Next

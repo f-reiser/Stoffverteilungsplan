@@ -959,24 +959,8 @@ Public Sub InsertRowsBelow(ByVal r1 As Long, ByVal r2 As Long)
     FastOn ws
     On Error GoTo Fail
 
-    ' Zeile "anchor" kopieren und als "kopierte Zellen" einfuegen: dabei
-    ' uebernimmt Excel selbst Formate, Kontrollkaestchen, Zeilenhoehe,
-    ' Gueltigkeitsliste UND bedingte Formatierung auf die neuen Zeilen
-    ' und dehnt die Regelbereiche mit aus - auch am Tabellenende.
     SetStep "Zeilen einfuegen"
-    Application.CutCopyMode = False
-    For i = 1 To n
-        ws.Rows(anchor).Copy
-        ws.Rows(anchor + 1).Insert Shift:=xlDown
-    Next i
-    Application.CutCopyMode = False
-
-    SetStep "Neue Zeilen leeren"
-    ws.Range(ws.Cells(anchor + 1, "A"), ws.Cells(anchor + n, "V")).ClearContents
-    ws.Rows(anchor + 1).Resize(n).RowHeight = ws.Rows(anchor).RowHeight
-    For i = anchor + 1 To anchor + n
-        ws.Cells(i, "J").Value = False
-    Next i
+    RowsAmEndeEinfuegen ws, anchor, n
 
     RebuildAll ws, lastRow + n
 
@@ -988,6 +972,59 @@ Public Sub InsertRowsBelow(ByVal r1 As Long, ByVal r2 As Long)
 Fail:
     ReportError "Einfuegen"
 End Sub
+
+
+'  Das eigentliche Einfuegen aus InsertRowsBelow, ohne Auswahl, Frage
+'  oder RebuildAll - EnsureMinPlanRows unten braucht dasselbe, aber
+'  ohne die Interaktion, die dort noetig ist.
+'
+'  Zeile "anchor" kopieren und als "kopierte Zellen" einfuegen: dabei
+'  uebernimmt Excel selbst Formate, Kontrollkaestchen, Zeilenhoehe,
+'  Gueltigkeitsliste UND bedingte Formatierung auf die neuen Zeilen
+'  und dehnt die Regelbereiche mit aus - auch am Tabellenende.
+Private Sub RowsAmEndeEinfuegen(ByVal ws As Worksheet, ByVal anchor As Long, ByVal n As Long)
+    Dim i As Long
+
+    Application.CutCopyMode = False
+    For i = 1 To n
+        ws.Rows(anchor).Copy
+        ws.Rows(anchor + 1).Insert Shift:=xlDown
+    Next i
+    Application.CutCopyMode = False
+
+    ws.Range(ws.Cells(anchor + 1, "A"), ws.Cells(anchor + n, "V")).ClearContents
+    ws.Rows(anchor + 1).Resize(n).RowHeight = ws.Rows(anchor).RowHeight
+    For i = anchor + 1 To anchor + n
+        ws.Cells(i, "J").Value = False
+    Next i
+End Sub
+
+
+'=====================================================================
+'  Fehlende Planzeilen anhaengen (#64)
+'  ------------------------------------------------------------------
+'  Fuer modKalender.UW_Und_Ferien_Generieren: eine fast leere Mappe -
+'  nur die grobe Planung in "Lernbereiche" steht schon - hatte bisher
+'  nach dem Knopf "Wochenplan neu aufbauen" nur EINE Planzeile, weil
+'  nichts dafuer sorgte, dass ueberhaupt genug Zeilen fuer alle
+'  verfuegbaren Unterrichtswochen entstehen.
+'
+'  Haengt am Ende genau so viele leere Planzeilen an, wie fehlen.
+'  Rueckgabe: Anzahl der neu eingefuegten Zeilen (0, wenn schon genug
+'  da sind oder keine Ankerzeile existiert).
+'=====================================================================
+Public Function EnsureMinPlanRows(ByVal ws As Worksheet, ByVal minRows As Long) As Long
+    Dim lastRow As Long, cr() As Long, nRows As Long, n As Long, anchor As Long
+
+    lastRow = PlanLastRow(ws)
+    nRows = ContentRows(ws, lastRow, cr)
+    If nRows = 0 Or nRows >= minRows Then Exit Function
+
+    anchor = cr(nRows)
+    n = minRows - nRows
+    RowsAmEndeEinfuegen ws, anchor, n
+    EnsureMinPlanRows = n
+End Function
 
 
 '=====================================================================
