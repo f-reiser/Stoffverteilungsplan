@@ -20,6 +20,6 @@ on:
 
 jobs:
   label-abgleich:
-    uses: f-reiser/reiser-flow/.github/workflows/label-abgleich.yml@7409a64452c6a9bff47d6b8ba061d5ebf6271e58  # v2.3.0
+    uses: f-reiser/reiser-flow/.github/workflows/label-abgleich.yml@3c024ad74fc72439b343ec0dbd3d66006329db12  # v2.4.0
     permissions:
       issues: write

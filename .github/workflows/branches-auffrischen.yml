@@ -15,7 +15,7 @@ on:
 jobs:
   branches-auffrischen:
     if: github.event_name != 'pull_request' || (github.event.pull_request.merged == true && github.event.pull_request.base.ref == github.event.repository.default_branch)
-    uses: f-reiser/reiser-flow/.github/workflows/branches-auffrischen.yml@7409a64452c6a9bff47d6b8ba061d5ebf6271e58  # v2.3.0
+    uses: f-reiser/reiser-flow/.github/workflows/branches-auffrischen.yml@3c024ad74fc72439b343ec0dbd3d66006329db12  # v2.4.0
     permissions:
       contents: write
       pull-requests: read
